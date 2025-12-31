@@ -2,6 +2,7 @@
 
 import csv
 import stripe
+from django.utils import timezone
 from rest_framework import viewsets, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -86,21 +87,24 @@ def booking_detail(request, pk):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def booking_dates(request):
-
     bookings = Booking.objects.all()
     events = []
 
     for booking in bookings:
         try:
-            event_date = booking.event_date
+            start_date = booking.from_date
+            end_date = booking.to_date
+
             if hasattr(booking, "start_time") and booking.start_time:
-                start_dt = datetime.combine(event_date, booking.start_time)
+                start_dt = datetime.combine(start_date, booking.start_time)
             else:
-                start_dt = datetime.combine(event_date, dtime.min)
+                start_dt = datetime.combine(start_date, dtime.min)
+
             if hasattr(booking, "end_time") and booking.end_time:
-                end_dt = datetime.combine(event_date, booking.end_time)
+                end_dt = datetime.combine(end_date, booking.end_time)
             else:
-                end_dt = datetime.combine(event_date, dtime.max.replace(microsecond=0))
+                end_dt = datetime.combine(end_date, dtime.max.replace(microsecond=0))
+            
             if end_dt <= start_dt:
                 end_dt = start_dt + timedelta(hours=1)
 
@@ -135,10 +139,17 @@ def dashboard_stats(request):
         .annotate(count=Count('id'))
     )
 
+    unread_inquiries = Booking.objects.filter(status='pending').count()
+    today = timezone.now().date()
+    upcoming_events = Booking.objects.filter(from_date__gte=today).count()
+    
     stats = {
         "bookings_per_month": list(monthly),
         "event_type_distribution": list(event_types),
         "total_bookings": Booking.objects.count(),
+        "unread_inquiries": unread_inquiries,
+        "upcoming_events": upcoming_events, 
+        
     }
     return Response(stats)
 
@@ -167,17 +178,34 @@ def update_booking_status(request, pk):
         booking = Booking.objects.get(id=pk)
         new_status = request.data.get("status")
         if not new_status:
-            return Response({"error": "Status field is required."}, status=400)
-        # ❗ Do not allow approval unless advance paid
-        if new_status == "approved" and booking.paid_amount < booking.advance_amount:
-            return Response({"error": "Advance payment required before approval."}, status=400)
+            return Response(
+                {"error": "Status field is required."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if new_status not in ['approved', 'rejected', 'pending']:
+            return Response(
+                {"error": "Invalid status. Must be 'approved', 'rejected', or 'pending'."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
         booking.status = new_status
         booking.save()
-        return Response({"message": f"Status updated to {new_status}."})
+        return Response(
+            {
+                "message": f"Status updated to {new_status}.",
+                "booking": BookingSerializer(booking).data
+            },
+            status=status.HTTP_200_OK
+        )
     except Booking.DoesNotExist:
-        return Response({"error": "Booking not found."}, status=404)
+        return Response(
+            {"error": "Booking not found."}, 
+            status=status.HTTP_404_NOT_FOUND
+        )
     except Exception as e:
-        return Response({"error": str(e)}, status=400)
+        return Response(
+            {"error": str(e)}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
 # ======================================================
 # 🟢 PAYMENT SUCCESS — UPDATE BOOKING

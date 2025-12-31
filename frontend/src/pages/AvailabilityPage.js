@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { Calendar, momentLocalizer } from "react-big-calendar";
 import moment from "moment";
-import api from "../api";
-
+import API from "../api";
 import "react-big-calendar/lib/css/react-big-calendar.css"; 
-import "../App.css"; // your custom overrides
+import "../App.css";
 
 const localizer = momentLocalizer(moment);
 
@@ -16,10 +15,11 @@ export default function AvailabilityPage() {
   // Load Booking Dates
   useEffect(() => {
     let mounted = true;
-
     const fetchDates = async () => {
       try {
-        const res = await api.get("bookings/dates/");
+        console.log("📅 Fetching calendar data...");
+        const res = await API.get("/bookings/dates/");
+        console.log("✅ Calendar data received:", res.data);
 
         if (mounted) {
           const formatted = res.data.map((ev) => ({
@@ -33,6 +33,7 @@ export default function AvailabilityPage() {
         }
       } catch (err) {
         console.error("❌ Error loading calendar:", err);
+        console.error("❌ Error details:", err.response?.data);
         if (mounted) setError("Failed to load calendar data.");
       } finally {
         if (mounted) setLoading(false);
@@ -71,6 +72,7 @@ export default function AvailabilityPage() {
   };
 
   return (
+    // <div className="home-container"> 
       <div className="availability-page">
         <h2 className="page-title">Availability Calendar</h2>
 

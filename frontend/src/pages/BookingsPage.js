@@ -53,6 +53,20 @@ export default function BookingsPage() {
 
   const formatDate = (d) => new Date(d).toLocaleDateString("en-GB");
 
+    const getStatusBadgeClass = (status) => {
+    const statusLower = status.toLowerCase();
+    switch (statusLower) {
+      case "approved":
+        return "status-badge status-approved";
+      case "rejected":
+        return "status-badge status-rejected";
+      case "pending":
+        return "status-badge status-pending";
+      default:
+        return "status-badge status-default";
+    }
+  };
+
   // 🔔 Show API errors at the top (but not per-field)
   const renderErrors = () => {
     if (!error) return null;
@@ -110,7 +124,11 @@ export default function BookingsPage() {
                 <td>{b.id}</td>
                 <td>{b.name}</td>
                 <td>{b.event_type}</td>
-                <td>{b.status}</td>
+                <td>
+                  <span className={getStatusBadgeClass(b.status)}>
+                    {b.status}
+                  </span>
+                </td>
                 <td>{formatDate(b.from_date)} → {formatDate(b.to_date)}</td>
                 <td>{b.start_time} → {b.end_time}</td>
 

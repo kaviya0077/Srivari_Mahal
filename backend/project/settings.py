@@ -131,7 +131,7 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = "srivarimahal2025kpm@gmail.com"
 EMAIL_HOST_PASSWORD = "eepw ibge bxej atwk"
-DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+DEFAULT_FROM_EMAIL = "srivarimahal2025kpm@gmail.com"
 
 # ------------------------------------------------
 # PAYMENT SETTINGS (Razorpay Placeholder)

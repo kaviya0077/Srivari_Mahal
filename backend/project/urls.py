@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.urls import path, include
-from django.conf import settings          # ✅ Added this import
+from django.conf import settings     
+from api.views import BookingViewSet     # ✅ Added this import
 from django.conf.urls.static import static
 
 # JWT authentication views

@@ -5,6 +5,8 @@ import API from "../api";
 import "../App.css";
 
 const BookingFormPage = () => {
+  const navigate = useNavigate();
+  
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
@@ -32,7 +34,6 @@ const BookingFormPage = () => {
     setErrors({ ...errors, [e.target.name]: "" });
   };
 
-  const navigate = useNavigate()
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -40,46 +41,35 @@ const BookingFormPage = () => {
 
     try {
       const res = await API.post("/bookings/", formData);
+      console.log("✅ Booking Success:", res.data);
+      
+      // Navigate immediately with booking data
       navigate("/booking-success", {
-        state: {booking: res.data}
-      });
-
-      setFormData({
-        name: "",
-        phone: "",
-        alternate_phone: "",
-        email: "",
-        event_type: "",
-        from_date: "",
-        to_date: "",
-        start_time: "",
-        end_time: "",
-        address_line: "",
-        state: "",
-        city: "",
-        pincode: "",
-        message: "",
-        estimated_guests: "",
-        food_preference: "",
+        state: { booking: res.data },
+        replace: true // This prevents going back to form with submitted data
       });
 
     } catch (err) {
-      console.log("❌ Booking Error:", err.response?.data);
+      console.error("❌ Booking Error:", err.response?.data || err.message);
 
       if (err.response?.data) {
         setErrors(err.response.data);
       } else {
-        alert("Something went wrong");
+        setErrors({ non_field_errors: "Something went wrong. Please try again." });
       }
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   return (
     <div className="home-container">
       <div className="form-container">
         <h2>Book Your Event</h2>
+
+        {errors.non_field_errors && (
+          <div className="error-box">{errors.non_field_errors}</div>
+        )}
 
         <form onSubmit={handleSubmit}>
 
@@ -90,6 +80,7 @@ const BookingFormPage = () => {
             value={formData.name}
             onChange={handleChange}
             className="full-width"
+            required
           />
           {errors.name && <span className="error-text">{errors.name}</span>}
 
@@ -99,6 +90,7 @@ const BookingFormPage = () => {
             placeholder="Phone Number"
             value={formData.phone}
             onChange={handleChange}
+            required
           />
           {errors.phone && <span className="error-text">{errors.phone}</span>}
 
@@ -116,6 +108,7 @@ const BookingFormPage = () => {
             placeholder="Email Address"
             value={formData.email}
             onChange={handleChange}
+            required
           />
           {errors.email && <span className="error-text">{errors.email}</span>}
 
@@ -158,6 +151,7 @@ const BookingFormPage = () => {
               name="event_type"
               value={formData.event_type}
               onChange={handleChange}
+              required
             >
               <option value="">Select Event Type</option>
               <option value="Wedding">Wedding</option>
@@ -197,6 +191,7 @@ const BookingFormPage = () => {
               name="from_date"
               value={formData.from_date}
               onChange={handleChange}
+              required
             />
             {errors.from_date && <span className="error-text">{errors.from_date}</span>}
 
@@ -205,6 +200,7 @@ const BookingFormPage = () => {
               name="to_date"
               value={formData.to_date}
               onChange={handleChange}
+              required
             />
             {errors.to_date && <span className="error-text">{errors.to_date}</span>}
 
@@ -233,11 +229,7 @@ const BookingFormPage = () => {
             rows={4}
           />
 
-          {errors.non_field_errors && (
-            <div className="error-text">{errors.non_field_errors}</div>
-          )}
-
-          <button className="btn-primary full-width" disabled={loading}>
+          <button className="btn-primary full-width" type="submit" disabled={loading}>
             {loading ? "Submitting..." : "Submit Booking"}
           </button>
 
