@@ -1,0 +1,4 @@
+[
+  {"model":"api.booking","pk":1,"fields":{"client_name":"John Doe","event_type":"Wedding","date":"2025-11-20","created_at":"2025-10-01T10:00:00Z"}},
+  {"model":"api.booking","pk":2,"fields":{"client_name":"Jane Smith","event_type":"Pooja","date":"2025-11-25","created_at":"2025-10-02T12:30:00Z"}}
+]

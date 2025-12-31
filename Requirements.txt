@@ -1,0 +1,4 @@
+Requirements
+--------------
+Razorpay Account (For Payments)
+New WhatsApp Number (Shouldn't Register with existing account)
