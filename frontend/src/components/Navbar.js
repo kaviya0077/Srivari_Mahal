@@ -69,7 +69,7 @@ export default function Navbar() {
             </li>
 
             {/* 👇 Admin Login only if FEATURE FLAG is true */}
-            {showAdminLogin && !isAdmin &&(
+            {showAdminLogin && (
               <li>
                 <Link
                   to="/login"
