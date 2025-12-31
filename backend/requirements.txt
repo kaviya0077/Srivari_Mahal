@@ -5,3 +5,4 @@ reportlab
 psycopg2
 gunicorn
 djangorestframework-simplejwt
+stripe
