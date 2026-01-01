@@ -1,79 +1,58 @@
 from django.core.mail import send_mail
 from django.conf import settings
+import logging
 
-# =====================================================
-# 📧 EMAIL NOTIFICATIONS (Customer + Owner)
-# =====================================================
+logger = logging.getLogger(__name__)
+
 def send_booking_confirmation(booking):
-    """
-    Send booking confirmation email to customer and notification to owner
-    """
-    print(f"📧 SENDING EMAIL TO: {booking.email}")
-    
     try:
-        # Customer email
-        subject = "🎉 Booking Confirmed — Sri Vari Mahal"
+        subject = f"Booking Confirmation - {booking.event_type}"
         message = f"""
 Dear {booking.name},
 
-Your booking has been successfully received.
+Thank you for booking with Sri Vari Mahal A/C!
 
-📅 Event: {booking.event_type}
-📆 From Date: {booking.from_date}
-📆 To Date: {booking.to_date}
-⏰ Time: {booking.start_time} to {booking.end_time}
-👥 Estimated Guests: {booking.estimated_guests}
+Booking Details:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Event Type: {booking.event_type}
+Date: {booking.from_date} to {booking.to_date}
+Time: {booking.start_time} - {booking.end_time}
+Guests: {booking.estimated_guests or 'Not specified'}
+Food Preference: {booking.food_preference or 'Not specified'}
 
-📌 Status: {booking.status}
+Contact Details:
+Name: {booking.name}
+Phone: {booking.phone}
+Email: {booking.email}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-We are excited to host your event at Sri Vari Mahal.
-Our team will reach out soon for further coordination.
+We will contact you shortly to confirm your booking and discuss further details.
 
-Warm Regards,  
-Sri Vari Mahal A/C
-📞 +91 98431 86231
-📞 +91 88702 01981
-📧 srivarimahal2025kpm@gmail.com
-"""
+Best regards,
+Sri Vari Mahal A/C Team
+📞 98431 86231 | 88702 01981
+        """
 
-        # Correct parameter order:
-        # send_mail(subject, message, from_email, recipient_list, fail_silently)
-        send_mail(
-            subject,                                    # Subject
-            message,                                    # Message body
-            settings.DEFAULT_FROM_EMAIL,                # From email (must be configured)
-            [booking.email],                            # Recipient list (to customer)
+        logger.info(f"📧 Sending email to: {booking.email}")
+        logger.info(f"📧 From: {settings.DEFAULT_FROM_EMAIL}")
+        logger.info(f"📧 Backend: {settings.EMAIL_BACKEND}")
+        
+        result = send_mail(
+            subject,
+            message,
+            settings.DEFAULT_FROM_EMAIL,
+            [booking.email],
             fail_silently=False,
         )
         
-        print("✅ CUSTOMER EMAIL SENT SUCCESSFULLY")
-        
-        # Optional: Send notification to owner
-        owner_subject = f"🔔 New Booking: {booking.event_type}"
-        owner_message = f"""
-New booking received!
-
-Customer: {booking.name}
-Phone: {booking.phone}
-Email: {booking.email}
-Event: {booking.event_type}
-Date: {booking.from_date} to {booking.to_date}
-Guests: {booking.estimated_guests}
-Status: {booking.status}
-
-Please review and confirm.
-"""
-        
-        send_mail(
-            owner_subject,
-            owner_message,
-            settings.DEFAULT_FROM_EMAIL,
-            ["srivarimahal2025kpm@gmail.com"],          # 
-            fail_silently=True,                         
-        )
-        
-        print("✅ OWNER NOTIFICATION SENT")
+        if result == 1:
+            logger.info(f"✅ Email sent successfully to {booking.email}")
+        else:
+            logger.warning(f"⚠️ Email send returned {result}")
+            
+        return True
         
     except Exception as e:
-        print(f"❌ EMAIL ERROR: {str(e)}")
-        raise  # Re-raise to see the full error in console
+        logger.error(f"❌ Email sending failed: {str(e)}")
+        logger.exception("Full traceback:")
+        return False
