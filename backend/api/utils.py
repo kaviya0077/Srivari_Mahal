@@ -49,7 +49,6 @@ Sri Vari Mahal A/C Team
             logger.info(f"✅ Email sent successfully to {booking.email}")
         else:
             logger.warning(f"⚠️ Email send returned {result}")
-            
         return True
         
     except Exception as e:
