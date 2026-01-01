@@ -10,9 +10,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # ------------------------------------------------
 # Security
 # ------------------------------------------------
-SECRET_KEY = 'your-secret-key-here'   # ⚠️ Replace in production
-DEBUG = False
-ALLOWED_HOSTS = ['*']
+SECRET_KEY = os.getenv('SECRET_KEY', 'your-secret-key-here')  # Uses env var in production, fallback in dev
+DEBUG = os.getenv('DEBUG', 'True') == 'True'  # True in dev, False in production
+
+ALLOWED_HOSTS = [    
+    'localhost',
+    '127.0.0.1',
+    'srivari-mahal.onrender.com',  # Removed https://
+    '.netlify.app',  
+    # 'your-custom-domain.com',
+]
 
 # ------------------------------------------------
 # Installed Apps
@@ -39,12 +46,10 @@ INSTALLED_APPS = [
 # Middleware
 # ------------------------------------------------
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-
-    # CORS — Must stay at top
     'corsheaders.middleware.CorsMiddleware',
-
+    'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -55,8 +60,6 @@ MIDDLEWARE = [
 # ------------------------------------------------
 # URLs & Templates
 # ------------------------------------------------
-# ⚠️ IMPORTANT — update "project" to your actual project folder name
-# Example: if your folder is backend/sri_vari_mahal/, use 'sri_vari_mahal.urls'
 ROOT_URLCONF = 'project.urls'
 
 TEMPLATES = [
@@ -75,7 +78,27 @@ TEMPLATES = [
     },
 ]
 
-# ⚠️ Update this with your project folder name
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
+
 WSGI_APPLICATION = 'project.wsgi.application'
 
 # ------------------------------------------------
@@ -92,7 +115,7 @@ DATABASES = {
 # Static & Media
 # ------------------------------------------------
 STATIC_URL = 'static/'
-STATIC_ROOT = BASE_DIR / "staticfiles"
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")  # Fixed path join
 
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / "media"
@@ -100,10 +123,43 @@ MEDIA_ROOT = BASE_DIR / "media"
 # ------------------------------------------------
 # CORS — Allow Frontend
 # ------------------------------------------------
-CORS_ALLOW_ALL_ORIGINS = True
-    
+# For development: allow all origins
+# For production: specific origins only
+CORS_ALLOW_ALL_ORIGINS = DEBUG  # True in dev, False in production
 
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://srivarimahalac.netlify.app",
+]
+    
 CORS_ALLOW_CREDENTIALS = True
+
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://srivarimahalac.netlify.app",
+    "https://srivari-mahal.onrender.com",
+]
 
 # ------------------------------------------------
 # Django REST Framework + JWT Auth
@@ -124,15 +180,22 @@ SIMPLE_JWT = {
 }
 
 # ------------------------------------------------
-# EMAIL SETTINGS (for Gmail SMTP)
+# EMAIL SETTINGS (Handles both Dev & Production)
 # ------------------------------------------------
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = os.getenv("srivarimahal2025kpm@gmail.com")
-EMAIL_HOST_PASSWORD = os.getenv("eepw ibge bxej atwk")
-DEFAULT_FROM_EMAIL = "srivarimahal2025kpm@gmail.com"
+
+# Uses environment variables in production, fallback values in development
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "srivarimahal2025kpm@gmail.com")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "gvpdmrdmtoaypwgw")
+DEFAULT_FROM_EMAIL = os.getenv("EMAIL_HOST_USER", "srivarimahal2025kpm@gmail.com")
+
+# Debug logging (only shows in development when DEBUG=True)
+if DEBUG:
+    print(f"📧 Email configured: {EMAIL_HOST_USER}")
+    print(f"📧 Password length: {len(EMAIL_HOST_PASSWORD)}")
 
 # ------------------------------------------------
 # PAYMENT SETTINGS (Razorpay Placeholder)

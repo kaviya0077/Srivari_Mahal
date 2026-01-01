@@ -25,16 +25,46 @@ class BookingViewSet(viewsets.ModelViewSet):
     queryset = Booking.objects.all().order_by('-from_date')
     serializer_class = BookingSerializer
 
+    def create(self, request, *args, **kwargs):
+        """
+        Override create to handle email in background
+        """
+        # Validate and save booking
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        booking = serializer.instance
+        
+        print(f"✔️ BOOKING CREATED — ID: {booking.id}")
+        
+        import threading
+        def send_email_async():
+            try:
+                print("📧 TRIGGERING EMAIL IN BACKGROUND")
+                send_booking_confirmation(booking)
+                print("✅ EMAIL SENT SUCCESSFULLY")
+            except Exception as e:
+                print(f"❌ EMAIL FAILED (but booking saved): {str(e)}")
+        
+        email_thread = threading.Thread(target=send_email_async)
+        email_thread.daemon = True
+        email_thread.start()
+        
+        # Return success immediately
+        headers = self.get_success_headers(serializer.data)
+        return Response(
+            serializer.data,
+            status=status.HTTP_201_CREATED,
+            headers=headers
+        )
+    
     def perform_create(self, serializer):
-        booking = serializer.save()
-        print("✔️ BOOKING CREATED — TRIGGERING EMAIL")
-        send_booking_confirmation(booking)
+        serializer.save()
 
     def get_permissions(self):
         if self.action in ["list", "retrieve", "create"]:
             return [AllowAny()]
         return [IsAuthenticated()]
-
 
 # ======================================================
 # 🟢 GET ALL BOOKINGS / CREATE BOOKING (Public)
