@@ -129,7 +129,7 @@ export default function BookingsPage() {
               <th>Event</th>
               <th>Status</th>
               <th>Event Date</th>
-              <th>Evnet Time</th>
+              <th>Event Time</th>
               <th>Actions</th>
               <th>Receipt</th>
             </tr>
