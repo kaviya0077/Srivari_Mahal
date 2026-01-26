@@ -7,7 +7,21 @@ export default function BookingsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8000/api";
+  // ✅ Get API base URL - Remove '/api' from here since it's in API instance
+  const getApiBaseUrl = () => {
+    if (process.env.REACT_APP_API_URL) {
+      return process.env.REACT_APP_API_URL.replace('/api', '');
+    }
+    
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      return "http://localhost:8000";
+    }
+    
+    // Replace with your production backend URL when deployed
+    return "https://your-backend-domain.com";
+  };
+
+  const API_BASE_URL = getApiBaseUrl();
 
   const loadBookings = async () => {
     try {
@@ -34,6 +48,7 @@ export default function BookingsPage() {
       alert("Booking approved!");
       loadBookings();
     } catch (error) {
+      console.error("Approve error:", error);
       setError(error.response?.data || "Failed to approve booking.");
     }
   };
@@ -45,14 +60,25 @@ export default function BookingsPage() {
       alert("Booking rejected!");
       loadBookings();
     } catch (error) {
+      console.error("Reject error:", error);
       setError(error.response?.data || "Failed to reject booking.");
     }
   };
 
-// Updated to use environment variable
+  // ✅ Updated CSV download with better error handling
   const downloadCSV = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/bookings/export/`);
+      const response = await fetch(`${API_BASE_URL}/api/bookings/export/`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'text/csv',
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to download CSV');
+      }
+      
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -61,6 +87,7 @@ export default function BookingsPage() {
       document.body.appendChild(link);
       link.click();
       link.remove();
+      window.URL.revokeObjectURL(url); // Clean up
       alert("✅ CSV downloaded successfully!");
     } catch (error) {
       console.error("❌ Export failed:", error);
@@ -68,9 +95,28 @@ export default function BookingsPage() {
     }
   };
 
+  // ✅ Download/View receipt
+  const viewReceipt = (bookingId) => {
+    try {
+      const receiptUrl = `${API_BASE_URL}/api/bookings/${bookingId}/receipt/`;
+      
+      // Open in new tab
+      const newWindow = window.open(receiptUrl, '_blank', 'noopener,noreferrer');
+      
+      // Fallback if popup is blocked
+      if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+        // Alternative: download the PDF
+        window.location.href = receiptUrl;
+      }
+    } catch (error) {
+      console.error("Failed to open receipt:", error);
+      alert("Failed to open receipt. Please try again.");
+    }
+  };
+
   const formatDate = (d) => new Date(d).toLocaleDateString("en-GB");
 
-    const getStatusBadgeClass = (status) => {
+  const getStatusBadgeClass = (status) => {
     const statusLower = status.toLowerCase();
     switch (statusLower) {
       case "approved":
@@ -84,7 +130,7 @@ export default function BookingsPage() {
     }
   };
 
-  // 🔔 Show API errors at the top (but not per-field)
+  // 🔔 Show API errors at the top
   const renderErrors = () => {
     if (!error) return null;
 
@@ -153,6 +199,7 @@ export default function BookingsPage() {
                   <button
                     className="booking-btn btn-approve"
                     onClick={() => handleApprove(b.id)}
+                    disabled={b.status === 'approved'}
                   >
                     Approve
                   </button>
@@ -160,19 +207,20 @@ export default function BookingsPage() {
                   <button
                     className="booking-btn btn-reject"
                     onClick={() => handleReject(b.id)}
+                    disabled={b.status === 'rejected'}
                   >
                     Reject
                   </button>
                 </td>
+                
+                {/* ✅ Changed from <a> to <button> */}
                 <td>
-                  <a
-                    href={`${API_BASE_URL}/bookings/${b.id}/receipt/`}
-                    target="blank"
-                    rel="noopener noreferrer"
+                  <button
                     className="btn-view-simple"
+                    onClick={() => viewReceipt(b.id)}
                   >
-                    View
-                  </a>
+                    View Receipt
+                  </button>
                 </td>
               </tr>
             ))}
