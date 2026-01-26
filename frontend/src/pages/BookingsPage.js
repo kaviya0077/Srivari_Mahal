@@ -7,6 +7,8 @@ export default function BookingsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8000/api";
+
   const loadBookings = async () => {
     try {
       const res = await API.get("/bookings/");
@@ -47,8 +49,23 @@ export default function BookingsPage() {
     }
   };
 
-  const downloadCSV = () => {
-    window.location.href = "http://127.0.0.1:8000/api/bookings/export/";
+// Updated to use environment variable
+  const downloadCSV = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/bookings/export/`);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `sri_vari_mahal_bookings_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      alert("✅ CSV downloaded successfully!");
+    } catch (error) {
+      console.error("❌ Export failed:", error);
+      alert("Failed to export CSV. Please try again.");
+    }
   };
 
   const formatDate = (d) => new Date(d).toLocaleDateString("en-GB");

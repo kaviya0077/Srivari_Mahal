@@ -2,7 +2,7 @@
 import axios from "axios";
 
 const BASE_URL = process.env.REACT_APP_API_URL || (process.env.NODE_ENV === 'production' 
-                  ? 'https://srivari-mahal.onrender.com'  // Replace with your Render URL
+                  ? 'https://srivari-mahal.onrender.com'  
                   : 'http://localhost:8000/api');;
 
 const api = axios.create({
