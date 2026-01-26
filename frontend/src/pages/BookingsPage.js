@@ -166,7 +166,7 @@ export default function BookingsPage() {
                 </td>
                 <td>
                   <a
-                    href={`http://127.0.0.1:8000/api/bookings/${b.id}/receipt/`}
+                    href={`${API_BASE_URL}/bookings/${b.id}/receipt/`}
                     target="blank"
                     rel="noopener noreferrer"
                     className="btn-view-simple"

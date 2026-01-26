@@ -293,123 +293,295 @@ def create_payment_intent(request):
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 from reportlab.lib import colors
+from reportlab.lib.units import inch
 from reportlab.pdfgen import canvas
 from django.http import HttpResponse
+from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 
 def draw_border(pdf):
-    pdf.setStrokeColor(colors.HexColor("#4b6cb7"))
-    pdf.setLineWidth(3)
-    pdf.rect(25, 25, 545, 792, stroke=1, fill=0)
+    """Draw elegant double border with gradient effect"""
+    # Outer border - Purple
+    pdf.setStrokeColor(colors.HexColor("#6a11cb"))
+    pdf.setLineWidth(4)
+    pdf.rect(20, 20, 555, 802, stroke=1, fill=0)
+    
+    # Inner border - Lighter purple
+    pdf.setStrokeColor(colors.HexColor("#2575fc"))
+    pdf.setLineWidth(2)
+    pdf.rect(30, 30, 535, 782, stroke=1, fill=0)
+    
+    # Top accent bar
+    pdf.setFillColor(colors.HexColor("#6a11cb"))
+    pdf.rect(30, 782, 535, 30, stroke=0, fill=1)
+    
+    # Bottom accent bar
+    pdf.setFillColor(colors.HexColor("#2a0845"))
+    pdf.rect(30, 30, 535, 20, stroke=0, fill=1)
 
 def booking_receipt(request, pk):
     booking = Booking.objects.get(pk=pk)
 
     response = HttpResponse(content_type="application/pdf")
-    response["Content-Disposition"] = f'attachment; filename="receipt_{booking.id}.pdf"'
+    response["Content-Disposition"] = f'attachment; filename="SriVari_Receipt_{booking.id}.pdf"'
 
-    doc = SimpleDocTemplate(response, pagesize=A4, rightMargin=40, leftMargin=40, topMargin=60)
+    doc = SimpleDocTemplate(
+        response, 
+        pagesize=A4, 
+        rightMargin=50, 
+        leftMargin=50, 
+        topMargin=80, 
+        bottomMargin=70
+    )
+    
     styles = getSampleStyleSheet()
 
+    # Custom Styles
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Title'],
+        fontSize=24,
+        textColor=colors.white,
+        alignment=TA_CENTER,
+        spaceAfter=0,
+        fontName='Helvetica-Bold'
+    )
+    
+    subtitle_style = ParagraphStyle(
+        'Subtitle',
+        parent=styles['Normal'],
+        fontSize=11,
+        textColor=colors.HexColor("#6a11cb"),
+        alignment=TA_CENTER,
+        spaceAfter=20,
+        fontName='Helvetica-Oblique'
+    )
+    
+    section_header_style = ParagraphStyle(
+        'SectionHeader',
+        parent=styles['Heading3'],
+        fontSize=14,
+        textColor=colors.white,
+        backColor=colors.HexColor("#6a11cb"),
+        alignment=TA_CENTER,
+        spaceAfter=10,
+        spaceBefore=10,
+        borderPadding=(8, 8, 8, 8),
+        fontName='Helvetica-Bold'
+    )
+    
+    # Header - Venue Name (will appear in colored bar)
     header = Paragraph(
-        "<b><font size=18 color='#2a0845'>Sri Vari Mahal A/C</font></b>",
-        styles["Title"],
+        "<b>🏛️ SRI VARI MAHAL A/C 🏛️</b>",
+        title_style
     )
 
+    # Subtitle
     subtitle = Paragraph(
-        "<font size=12 color='#555'>Booking Confirmation Receipt</font>",
-        styles["Normal"],
+        "═══ Booking Confirmation Receipt ═══",
+        subtitle_style
     )
 
-    details_table = Table(
+    # Receipt Details Header Table
+    receipt_info = Table(
         [
-            ["Receipt No:", f"R-{booking.id}", "Date:", booking.created_at.strftime('%d-%m-%Y')],
+            [
+                Paragraph("<b>Receipt No:</b>", styles["Normal"]),
+                Paragraph(f"<font color='#6a11cb'><b>SVM-{booking.id:04d}</b></font>", styles["Normal"]),
+                Paragraph("<b>Date:</b>", styles["Normal"]),
+                Paragraph(f"<font color='#6a11cb'><b>{booking.created_at.strftime('%d %B %Y')}</b></font>", styles["Normal"])
+            ],
+            [
+                Paragraph("<b>Status:</b>", styles["Normal"]),
+                Paragraph(
+                    f"<font color='{'#28a745' if booking.status == 'approved' else '#ffc107' if booking.status == 'pending' else '#dc3545'}'><b>{booking.status.upper()}</b></font>",
+                    styles["Normal"]
+                ),
+                "",
+                ""
+            ]
         ],
-        colWidths=[90, 180, 90, 120],
+        colWidths=[80, 160, 80, 160],
     )
-    details_table.setStyle(
-        TableStyle([
-            ("BOX", (0, 0), (-1, -1), 1, colors.gray),
-            ("BACKGROUND", (0, 0), (-1, -1), colors.whitesmoke),
-            ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.gray),
-        ])
-    )
-
-    section_style = ParagraphStyle(
-        "section",
-        parent=styles["Heading3"],
-        textColor=colors.HexColor("#4b6cb7"),
-    )
-
-    customer = Table(
-        [
-            ["Name", booking.name],
-            ["Phone", booking.phone],
-            ["Email", booking.email or "-"],
-            ["Address", booking.address_line or "-"],
-        ],
-        colWidths=[120, 350],
-    )
-
-    customer.setStyle(TableStyle([
-        ("BOX", (0, 0), (-1, -1), 1, colors.lightgrey),
-        ("BACKGROUND", (0, 0), (-1, 0), colors.aliceblue),
-        ("INNERGRID", (0, 0), (-1, -1), 0.4, colors.gray),
+    
+    receipt_info.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor("#f8f9fa")),
+        ('BOX', (0, 0), (-1, -1), 2, colors.HexColor("#6a11cb")),
+        ('INNERGRID', (0, 0), (1, 0), 1, colors.HexColor("#dee2e6")),
+        ('INNERGRID', (2, 0), (-1, 0), 1, colors.HexColor("#dee2e6")),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 12),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 12),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
     ]))
 
-    event = Table(
+    # Customer Details Section
+    customer_header = Paragraph("👤 CUSTOMER DETAILS", section_header_style)
+    
+    customer_table = Table(
         [
-            ["Event Type", booking.event_type],
-            ["Event Dates", f"{booking.from_date} → {booking.to_date}"],
-            ["Event Time", f"{booking.start_time} → {booking.end_time}"],
-            ["Guests", booking.estimated_guests],
+            [
+                Paragraph("<b>Full Name:</b>", styles["Normal"]),
+                Paragraph(f"<font size=11>{booking.name}</font>", styles["Normal"])
+            ],
+            [
+                Paragraph("<b>Contact:</b>", styles["Normal"]),
+                Paragraph(f"<font size=11>📞 {booking.phone}</font>", styles["Normal"])
+            ],
+            [
+                Paragraph("<b>Email:</b>", styles["Normal"]),
+                Paragraph(f"<font size=11>✉️ {booking.email or 'Not Provided'}</font>", styles["Normal"])
+            ],
+            [
+                Paragraph("<b>Address:</b>", styles["Normal"]),
+                Paragraph(f"<font size=11>📍 {booking.address_line or 'Not Provided'}</font>", styles["Normal"])
+            ],
         ],
-        colWidths=[120, 350],
+        colWidths=[130, 350],
     )
 
-    event.setStyle(TableStyle([
-        ("BOX", (0, 0), (-1, -1), 1, colors.lightgrey),
-        ("BACKGROUND", (0, 0), (-1, 0), colors.aliceblue),
-        ("INNERGRID", (0, 0), (-1, -1), 0.4, colors.gray),
+    customer_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor("#e9ecef")),
+        ('BACKGROUND', (1, 0), (1, -1), colors.white),
+        ('BOX', (0, 0), (-1, -1), 1.5, colors.HexColor("#6a11cb")),
+        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#dee2e6")),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 12),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 12),
+        ('TOPPADDING', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
     ]))
 
-    payments = Table(
+    # Event Details Section
+    event_header = Paragraph("🎉 EVENT DETAILS", section_header_style)
+    
+    event_table = Table(
         [
-            # ["Total Amount", f"₹ {booking.total_amount or 0}"],
-            # ["Advance Paid", f"₹ {booking.paid_amount or 0}"],
-            # ["Balance", f"₹ {(booking.total_amount or 0) - (booking.paid_amount or 0)}"],
-            ["Status", booking.status.capitalize()],
+            [
+                Paragraph("<b>Event Type:</b>", styles["Normal"]),
+                Paragraph(f"<font size=11 color='#6a11cb'><b>{booking.event_type}</b></font>", styles["Normal"])
+            ],
+            [
+                Paragraph("<b>Event Duration:</b>", styles["Normal"]),
+                Paragraph(f"<font size=11>📅 {booking.from_date} <b>to</b> {booking.to_date}</font>", styles["Normal"])
+            ],
+            [
+                Paragraph("<b>Event Time:</b>", styles["Normal"]),
+                Paragraph(f"<font size=11>🕐 {booking.start_time} <b>to</b> {booking.end_time}</font>", styles["Normal"])
+            ],
+            [
+                Paragraph("<b>Expected Guests:</b>", styles["Normal"]),
+                Paragraph(f"<font size=11>👥 <b>{booking.estimated_guests}</b> Guests</font>", styles["Normal"])
+            ],
+            [
+                Paragraph("<b>Food Preference:</b>", styles["Normal"]),
+                Paragraph(f"<font size=11>🍽️ {booking.food_preference or 'Not Specified'}</font>", styles["Normal"])
+            ],
         ],
-        colWidths=[120, 350],
+        colWidths=[130, 350],
     )
 
-    payments.setStyle(TableStyle([
-        ("BOX", (0, 0), (-1, -1), 1, colors.lightgrey),
-        ("BACKGROUND", (0, 0), (-1, 0), colors.aliceblue),
-        ("INNERGRID", (0, 0), (-1, -1), 0.4, colors.gray),
+    event_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor("#e9ecef")),
+        ('BACKGROUND', (1, 0), (1, -1), colors.white),
+        ('BOX', (0, 0), (-1, -1), 1.5, colors.HexColor("#6a11cb")),
+        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#dee2e6")),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 12),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 12),
+        ('TOPPADDING', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
     ]))
 
+    # Payment Summary Section
+    payment_header = Paragraph("💰 BOOKING STATUS", section_header_style)
+    
+    status_color = {
+        'approved': '#28a745',
+        'pending': '#ffc107',
+        'rejected': '#dc3545'
+    }.get(booking.status.lower(), '#6c757d')
+    
+    payment_table = Table(
+        [
+            [
+                Paragraph("<b>Current Status:</b>", styles["Normal"]),
+                Paragraph(f"<font size=12 color='{status_color}'><b>● {booking.status.upper()}</b></font>", styles["Normal"])
+            ],
+            # [
+            #     Paragraph("<b>Total Amount:</b>", styles["Normal"]),
+            #     Paragraph(f"<font size=11><b>₹ {booking.total_amount or 0:,}</b></font>", styles["Normal"])
+            # ],
+            # [
+            #     Paragraph("<b>Advance Paid:</b>", styles["Normal"]),
+            #     Paragraph(f"<font size=11 color='#28a745'><b>₹ {booking.paid_amount or 0:,}</b></font>", styles["Normal"])
+            # ],
+            # [
+            #     Paragraph("<b>Balance Due:</b>", styles["Normal"]),
+            #     Paragraph(f"<font size=11 color='#dc3545'><b>₹ {(booking.total_amount or 0) - (booking.paid_amount or 0):,}</b></font>", styles["Normal"])
+            # ],
+        ],
+        colWidths=[130, 350],
+    )
+
+    payment_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor("#e9ecef")),
+        ('BACKGROUND', (1, 0), (1, -1), colors.white),
+        ('BOX', (0, 0), (-1, -1), 1.5, colors.HexColor("#6a11cb")),
+        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#dee2e6")),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 12),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 12),
+        ('TOPPADDING', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+    ]))
+
+    # Footer
+    footer_style = ParagraphStyle(
+        'Footer',
+        parent=styles['Normal'],
+        fontSize=9,
+        textColor=colors.HexColor("#6c757d"),
+        alignment=TA_CENTER,
+        leading=14
+    )
+    
     footer = Paragraph(
-        "<br/><font size=9 color='#555'>Thank you for choosing Sri Vari Mahal. "
-        "We look forward to hosting your event!<br/>"
-        "📞 98431 86231 | 88702 01981</font>",
-        styles["Normal"],
+        """
+        <br/>
+        <font size=10 color='#6a11cb'><b>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</b></font><br/>
+        <font size=9><i>Thank you for choosing Sri Vari Mahal A/C for your special occasion!</i></font><br/>
+        <font size=9>We are committed to making your event memorable and successful.</font><br/><br/>
+        <font size=9 color='#6a11cb'><b>📞 Contact Us:</b></font> 
+        <font size=9>+91 98431 86231 | +91 88702 01981</font><br/>
+        <font size=9 color='#6a11cb'><b>📧 Email:</b></font> 
+        <font size=9>srivarimahal2025kpm@gmail.com</font><br/><br/>
+        <font size=8 color='#6c757d'><i>This is a computer-generated receipt and does not require a signature.</i></font>
+        """,
+        footer_style
     )
 
+    # Build content
     content = [
-        header, subtitle, Spacer(1, 10),
-        details_table, Spacer(1, 16),
-
-        Paragraph("Customer Details", section_style),
-        customer, Spacer(1, 14),
-
-        Paragraph("Event Details", section_style),
-        event, Spacer(1, 14),
-
-        Paragraph("Payment Summary", section_style),
-        payments, Spacer(1, 20),
-
+        header,
+        subtitle,
+        Spacer(1, 12),
+        receipt_info,
+        Spacer(1, 20),
+        customer_header,
+        Spacer(1, 2),
+        customer_table,
+        Spacer(1, 18),
+        event_header,
+        Spacer(1, 2),
+        event_table,
+        Spacer(1, 18),
+        payment_header,
+        Spacer(1, 2),
+        payment_table,
+        Spacer(1, 25),
         footer
     ]
 
