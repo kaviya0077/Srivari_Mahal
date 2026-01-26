@@ -96,22 +96,9 @@ export default function BookingsPage() {
   };
 
   // ✅ Download/View receipt
-  const viewReceipt = (bookingId) => {
-    try {
-      const receiptUrl = `${API_BASE_URL}/api/bookings/${bookingId}/receipt/`;
-      
-      // Open in new tab
-      const newWindow = window.open(receiptUrl, '_blank', 'noopener,noreferrer');
-      
-      // Fallback if popup is blocked
-      if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
-        // Alternative: download the PDF
-        window.location.href = receiptUrl;
-      }
-    } catch (error) {
-      console.error("Failed to open receipt:", error);
-      alert("Failed to open receipt. Please try again.");
-    }
+const viewReceipt = (bookingId) => {
+    const receiptUrl = `${API_BASE_URL}/api/bookings/${bookingId}/receipt/`;
+    window.open(receiptUrl, '_blank', 'noopener,noreferrer');
   };
 
   const formatDate = (d) => new Date(d).toLocaleDateString("en-GB");
