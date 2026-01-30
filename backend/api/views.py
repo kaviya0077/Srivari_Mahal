@@ -293,25 +293,29 @@ def create_payment_intent(request):
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib import colors
-from reportlab.lib.units import inch
-from reportlab.pdfgen import canvas
-from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from django.http import HttpResponse
 from datetime import datetime
+from .models import Booking
 
-def draw_elegant_border(c, doc):
-    """Draw an elegant border with gradient effect"""
-    # Outer border - Purple gradient color
-    c.setStrokeColor(colors.HexColor("#6a11cb"))
-    c.setLineWidth(4)
-    c.rect(30, 30, A4[0] - 60, A4[1] - 60, stroke=1, fill=0)
+def draw_modern_header(c, doc):
+    """Draw modern header with gradient background"""
+    width, height = A4
     
-    # Inner border - Lighter purple
-    c.setStrokeColor(colors.HexColor("#9d50bb"))
-    c.setLineWidth(1)
-    c.rect(35, 35, A4[0] - 70, A4[1] - 70, stroke=1, fill=0)
+    # Top gradient banner - compact
+    c.setFillColor(colors.HexColor("#1a237e"))
+    c.rect(0, height - 75, width, 75, fill=1, stroke=0)
+    
+    # Accent stripe
+    c.setFillColor(colors.HexColor("#00bcd4"))
+    c.rect(0, height - 82, width, 7, fill=1, stroke=0)
+    
+    # Bottom accent line
+    c.setStrokeColor(colors.HexColor("#00bcd4"))
+    c.setLineWidth(2)
+    c.line(40, height - 88, width - 40, height - 88)
 
 def booking_receipt(request, pk):
     try:
@@ -322,14 +326,14 @@ def booking_receipt(request, pk):
     response = HttpResponse(content_type="application/pdf")
     response["Content-Disposition"] = f'attachment; filename="SriVari_Receipt_{booking.id}.pdf"'
 
-    # Create PDF with margins
+    # Create PDF with optimized margins for full single page
     doc = SimpleDocTemplate(
         response, 
         pagesize=A4,
-        rightMargin=50,
-        leftMargin=50,
-        topMargin=60,
-        bottomMargin=50
+        rightMargin=38,
+        leftMargin=38,
+        topMargin=98,
+        bottomMargin=32
     )
     
     styles = getSampleStyleSheet()
@@ -339,51 +343,39 @@ def booking_receipt(request, pk):
     # CUSTOM STYLES
     # ==========================================
     
-    # Main Title Style
-    title_style = ParagraphStyle(
-        'CustomTitle',
-        parent=styles['Heading1'],
-        fontSize=26,
-        textColor=colors.HexColor("#2a0845"),
-        spaceAfter=8,
-        alignment=TA_CENTER,
+    # Label style
+    label_style = ParagraphStyle(
+        'Label',
+        parent=styles['Normal'],
+        fontSize=10,
+        textColor=colors.HexColor("#555555"),
+        alignment=TA_LEFT,
         fontName='Helvetica-Bold',
-        leading=32
+        leading=13
     )
     
-    # Subtitle Style
-    subtitle_style = ParagraphStyle(
-        'Subtitle',
+    # Value style
+    value_style = ParagraphStyle(
+        'Value',
         parent=styles['Normal'],
-        fontSize=14,
-        textColor=colors.HexColor("#6a11cb"),
-        spaceAfter=20,
-        alignment=TA_CENTER,
-        fontName='Helvetica-Bold'
+        fontSize=11,
+        textColor=colors.HexColor("#212121"),
+        alignment=TA_LEFT,
+        fontName='Helvetica',
+        leading=14
     )
     
     # Section Header Style
     section_style = ParagraphStyle(
         'SectionHeader',
         parent=styles['Heading2'],
-        fontSize=14,
-        textColor=colors.white,
-        spaceAfter=10,
+        fontSize=12,
+        textColor=colors.HexColor("#1a237e"),
+        spaceAfter=3,
         spaceBefore=5,
         alignment=TA_LEFT,
         fontName='Helvetica-Bold',
-        backColor=colors.HexColor("#6a11cb"),
-        borderPadding=(8, 8, 8, 8)
-    )
-    
-    # Normal text style
-    normal_style = ParagraphStyle(
-        'CustomNormal',
-        parent=styles['Normal'],
-        fontSize=11,
-        textColor=colors.HexColor("#333333"),
-        alignment=TA_LEFT,
-        leading=16
+        leftIndent=10
     )
     
     # Footer style
@@ -391,205 +383,246 @@ def booking_receipt(request, pk):
         'Footer',
         parent=styles['Normal'],
         fontSize=9,
-        textColor=colors.HexColor("#666666"),
+        textColor=colors.HexColor("#616161"),
         alignment=TA_CENTER,
-        leading=12
+        leading=11
     )
 
     # ==========================================
-    # HEADER SECTION
+    # RECEIPT INFO BAR
     # ==========================================
     
-    # Main Title
-    story.append(Paragraph("SRI VARI MAHAL A/C", title_style))
-    story.append(Paragraph("Grand Marriage & Party Hall", subtitle_style))
+    story.append(Spacer(1, 4))
     
-    # Receipt Info Bar
-    receipt_info = [
+    receipt_data = [
         [
-            Paragraph(f"<b>Receipt No:</b> SVM-{str(booking.id).zfill(4)}", normal_style),
-            Paragraph(f"<b>Date:</b> {booking.created_at.strftime('%d %B %Y')}", normal_style)
+            Paragraph(f"<b>Receipt #:</b> SVM-{str(booking.id).zfill(4)}", value_style),
+            Paragraph(f"<b>Issue Date:</b> {booking.created_at.strftime('%d %b %Y')}", value_style),
+            Paragraph(f"<b>Status:</b> <font color='{'#155724' if booking.status=='approved' else '#856404' if booking.status=='pending' else '#721c24'}'>{booking.status.upper()}</font>", value_style)
         ]
     ]
     
-    receipt_table = Table(receipt_info, colWidths=[270, 270])
+    # Status-based color
+    status_colors = {
+        'pending': colors.HexColor("#fff9e6"),
+        'approved': colors.HexColor("#e8f5e9"),
+        'rejected': colors.HexColor("#ffebee")
+    }
+    
+    receipt_table = Table(receipt_data, colWidths=[180, 180, 180])
     receipt_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor("#f0e6ff")),
-        ('BOX', (0, 0), (-1, -1), 1, colors.HexColor("#9d50bb")),
+        ('BACKGROUND', (0, 0), (-1, -1), status_colors.get(booking.status.lower(), colors.HexColor("#f5f5f5"))),
+        ('BOX', (0, 0), (-1, -1), 1.5, colors.HexColor("#00bcd4")),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('TOPPADDING', (0, 0), (-1, -1), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+        ('TOPPADDING', (0, 0), (-1, -1), 9),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 9),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
     ]))
     
     story.append(receipt_table)
-    story.append(Spacer(1, 20))
+    story.append(Spacer(1, 10))
 
     # ==========================================
-    # CUSTOMER DETAILS SECTION
+    # CUSTOMER DETAILS
     # ==========================================
     
-    story.append(Paragraph("CUSTOMER DETAILS", section_style))
-    story.append(Spacer(1, 8))
+    story.append(Paragraph("CUSTOMER INFORMATION", section_style))
+    story.append(Spacer(1, 2))
     
     customer_data = [
-        ["Full Name", booking.name],
-        ["Contact Number", booking.phone],
-        ["Email Address", booking.email or "Not Provided"],
-        ["Address", booking.address_line or "Not Provided"],
+        [Paragraph("Full Name", label_style), Paragraph(booking.name, value_style)],
+        [Paragraph("Contact", label_style), Paragraph(booking.phone, value_style)],
+        [Paragraph("Email", label_style), Paragraph(booking.email or "Not Provided", value_style)],
+        [Paragraph("Address", label_style), Paragraph(booking.address_line or "Not Provided", value_style)],
     ]
     
-    customer_table = Table(customer_data, colWidths=[150, 390])
+    customer_table = Table(customer_data, colWidths=[130, 410])
     customer_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor("#f8f9fa")),
-        ('BACKGROUND', (1, 0), (1, -1), colors.white),
-        ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor("#2a0845")),
-        ('TEXTCOLOR', (1, 0), (1, -1), colors.HexColor("#333333")),
-        ('ALIGN', (0, 0), (0, -1), 'LEFT'),
-        ('ALIGN', (1, 0), (1, -1), 'LEFT'),
-        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-        ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 0), (-1, -1), 10),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#e0e0e0")),
-        ('TOPPADDING', (0, 0), (-1, -1), 8),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-        ('LEFTPADDING', (0, 0), (-1, -1), 10),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor("#e3f2fd")),
+        ('LINEBELOW', (0, 0), (-1, -2), 0.5, colors.HexColor("#90caf9")),
+        ('LINEBELOW', (0, -1), (-1, -1), 0, colors.white),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 12),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 12),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
     ]))
     
     story.append(customer_table)
-    story.append(Spacer(1, 20))
+    story.append(Spacer(1, 10))
 
     # ==========================================
-    # EVENT DETAILS SECTION
+    # EVENT DETAILS
     # ==========================================
     
     story.append(Paragraph("EVENT DETAILS", section_style))
-    story.append(Spacer(1, 8))
+    story.append(Spacer(1, 2))
+    
+    # Format dates nicely
+    same_day = booking.from_date == booking.to_date
+    if same_day:
+        event_date_str = booking.from_date.strftime('%d %B %Y')
+    else:
+        event_date_str = f"{booking.from_date.strftime('%d %b')} - {booking.to_date.strftime('%d %b %Y')}"
     
     event_data = [
-        ["Event Type", booking.event_type],
-        ["Event Date", f"{booking.from_date.strftime('%d %B %Y')} to {booking.to_date.strftime('%d %B %Y')}"],
-        ["Event Time", f"{booking.start_time.strftime('%I:%M %p')} to {booking.end_time.strftime('%I:%M %p')}"],
-        ["Expected Guests", f"{booking.estimated_guests} Guests"],
-        ["Food Preference", booking.food_preference or "Not Specified"],
+        [Paragraph("Event Type", label_style), Paragraph(booking.event_type, value_style)],
+        [Paragraph("Event Date", label_style), Paragraph(event_date_str, value_style)],
+        [Paragraph("Event Time", label_style), Paragraph(f"{booking.start_time.strftime('%I:%M %p')} - {booking.end_time.strftime('%I:%M %p')}", value_style)],
+        [Paragraph("Expected Guests", label_style), Paragraph(f"{booking.estimated_guests} Guests", value_style)],
+        [Paragraph("Food Preference", label_style), Paragraph(booking.food_preference or "To be decided", value_style)],
     ]
     
-    event_table = Table(event_data, colWidths=[150, 390])
+    event_table = Table(event_data, colWidths=[130, 410])
     event_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor("#f8f9fa")),
-        ('BACKGROUND', (1, 0), (1, -1), colors.white),
-        ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor("#2a0845")),
-        ('TEXTCOLOR', (1, 0), (1, -1), colors.HexColor("#333333")),
-        ('ALIGN', (0, 0), (0, -1), 'LEFT'),
-        ('ALIGN', (1, 0), (1, -1), 'LEFT'),
-        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-        ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 0), (-1, -1), 10),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#e0e0e0")),
-        ('TOPPADDING', (0, 0), (-1, -1), 8),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-        ('LEFTPADDING', (0, 0), (-1, -1), 10),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor("#e3f2fd")),
+        ('LINEBELOW', (0, 0), (-1, -2), 0.5, colors.HexColor("#90caf9")),
+        ('LINEBELOW', (0, -1), (-1, -1), 0, colors.white),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 12),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 12),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
     ]))
     
     story.append(event_table)
-    story.append(Spacer(1, 20))
+    
+    # ==========================================
+    # SPECIAL REQUESTS - Conditional
+    # ==========================================
+    
+    if booking.message:
+        story.append(Spacer(1, 10))
+        story.append(Paragraph("SPECIAL REQUESTS", section_style))
+        story.append(Spacer(1, 2))
+        
+        message_data = [[Paragraph(booking.message, value_style)]]
+        
+        message_table = Table(message_data, colWidths=[540])
+        message_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor("#fff3e0")),
+            ('BOX', (0, 0), (-1, -1), 1, colors.HexColor("#ffb74d")),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('LEFTPADDING', (0, 0), (-1, -1), 12),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 12),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        
+        story.append(message_table)
 
     # ==========================================
-    # BOOKING STATUS SECTION
+    # BOOKING STATUS BADGE
     # ==========================================
     
-    story.append(Paragraph("BOOKING STATUS", section_style))
-    story.append(Spacer(1, 8))
+    story.append(Spacer(1, 12))
     
-    # Status color coding
-    status_colors = {
-        'pending': colors.HexColor("#fff3cd"),
-        'approved': colors.HexColor("#d4edda"),
-        'rejected': colors.HexColor("#f8d7da")
+    status_badge_colors = {
+        'pending': (colors.HexColor("#fff3cd"), colors.HexColor("#856404")),
+        'approved': (colors.HexColor("#d4edda"), colors.HexColor("#155724")),
+        'rejected': (colors.HexColor("#f8d7da"), colors.HexColor("#721c24"))
     }
     
-    status_text_colors = {
-        'pending': colors.HexColor("#856404"),
-        'approved': colors.HexColor("#155724"),
-        'rejected': colors.HexColor("#721c24")
-    }
+    bg_color, text_color = status_badge_colors.get(
+        booking.status.lower(), 
+        (colors.HexColor("#e0e0e0"), colors.black)
+    )
     
-    status_bg = status_colors.get(booking.status.lower(), colors.HexColor("#e9ecef"))
-    status_text = status_text_colors.get(booking.status.lower(), colors.black)
+    status_para = ParagraphStyle(
+        'StatusBadge',
+        parent=styles['Normal'],
+        fontSize=13,
+        textColor=text_color,
+        alignment=TA_CENTER,
+        fontName='Helvetica-Bold'
+    )
     
-    status_data = [
-        ["Current Status", booking.status.upper()],
-    ]
+    status_data = [[Paragraph(f"BOOKING STATUS: {booking.status.upper()}", status_para)]]
     
-    status_table = Table(status_data, colWidths=[150, 390])
+    status_table = Table(status_data, colWidths=[540])
     status_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor("#f8f9fa")),
-        ('BACKGROUND', (1, 0), (1, -1), status_bg),
-        ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor("#2a0845")),
-        ('TEXTCOLOR', (1, 0), (1, -1), status_text),
-        ('ALIGN', (0, 0), (0, -1), 'LEFT'),
-        ('ALIGN', (1, 0), (1, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-        ('FONTNAME', (1, 0), (1, -1), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 11),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#e0e0e0")),
+        ('BACKGROUND', (0, 0), (-1, -1), bg_color),
+        ('BOX', (0, 0), (-1, -1), 2, text_color),
         ('TOPPADDING', (0, 0), (-1, -1), 10),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
-        ('LEFTPADDING', (0, 0), (-1, -1), 10),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 10),
     ]))
     
     story.append(status_table)
-    story.append(Spacer(1, 25))
+    story.append(Spacer(1, 10))
 
     # ==========================================
-    # FOOTER SECTION
+    # FOOTER
     # ==========================================
     
-    # Divider line
+    # Divider
     divider = Table([['']], colWidths=[540])
     divider.setStyle(TableStyle([
-        ('LINEABOVE', (0, 0), (-1, -1), 2, colors.HexColor("#6a11cb")),
+        ('LINEABOVE', (0, 0), (-1, -1), 1.5, colors.HexColor("#00bcd4")),
     ]))
     story.append(divider)
-    story.append(Spacer(1, 15))
+    story.append(Spacer(1, 6))
     
     # Thank you message
     story.append(Paragraph(
-        "<b>Thank you for choosing Sri Vari Mahal A/C for your special occasion!</b>",
-        footer_style
+        "<b>Thank You for Choosing Sri Vari Mahal A/C!</b>",
+        ParagraphStyle('ThankYou', parent=styles['Normal'], fontSize=11,
+                      textColor=colors.HexColor("#1a237e"), alignment=TA_CENTER, 
+                      fontName='Helvetica-Bold', spaceAfter=4)
     ))
-    story.append(Spacer(1, 8))
     
     story.append(Paragraph(
-        "We are committed to making your event memorable and successful.",
+        "We look forward to making your celebration truly memorable.",
         footer_style
     ))
-    story.append(Spacer(1, 12))
+    story.append(Spacer(1, 5))
     
-    # Contact Information
-    contact_info = """
-    <b>Contact:</b> +91 98431 86231 | +91 88702 01981<br/>
-    <b>Email:</b> srivarimahal2025kpm@gmail.com<br/>
-    <b>Address:</b> Kannadasan Street, Abirami Nagar, Kanchipuram - 631551
-    """
-    story.append(Paragraph(contact_info, footer_style))
-    story.append(Spacer(1, 15))
+    # Contact info - compact format
+    contact_data = [
+        [Paragraph("Phone: +91 98431 86231 | +91 88702 01981", footer_style)],
+        [Paragraph("Email: srivarimahal2025kpm@gmail.com", footer_style)],
+        [Paragraph("Address: Sri Vari Mahal A/C - Grand Marriage & Party Hall, Kannadasan Street, Abirami Nagar, Baluchetty Chatram, Sirunaiperugal, Kanchipuram - 631551", footer_style)]
+    ]
     
-    # Computer generated note
+    contact_table = Table(contact_data, colWidths=[540])
+    contact_table.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+    ]))
+    
+    story.append(contact_table)
+    story.append(Spacer(1, 5))
+    
+    # Disclaimer
     story.append(Paragraph(
-        "<i>This is a computer-generated receipt and does not require a signature.</i>",
-        footer_style
+        "<i>This is a computer-generated document. No signature required.</i>",
+        ParagraphStyle('Disclaimer', parent=footer_style, fontSize=7,
+                      textColor=colors.HexColor("#9e9e9e"))
     ))
 
     # ==========================================
-    # BUILD PDF
+    # BUILD PDF WITH HEADER ON FIRST PAGE
     # ==========================================
     
-    doc.build(story, onFirstPage=draw_elegant_border, onLaterPages=draw_elegant_border)
-    
+    def first_page(c, doc):
+        c.saveState()
+        draw_modern_header(c, doc)
+        
+        # Add title and subtitle on the colored header
+        width, height = A4
+        c.setFont('Helvetica-Bold', 20)
+        c.setFillColor(colors.white)
+        c.drawCentredString(width / 2, height - 35, "SRI VARI MAHAL A/C")
+        
+        c.setFont('Helvetica', 9)
+        c.setFillColor(colors.HexColor("#b3e5fc"))
+        c.drawCentredString(width / 2, height - 50, "Grand Marriage & Party Hall")
+        c.drawCentredString(width / 2, height - 62, "Booking Confirmation Receipt")
+        c.restoreState()
+
+    doc.build(story, onFirstPage=first_page)
     return response
 
 from .models import Expense
