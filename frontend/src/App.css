@@ -1021,6 +1021,18 @@ h2, h3 {
 /* ===============================
    🏢 FACILITIES
    =============================== */
+.facility-container {
+  width: 100%;
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 35px 40px;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.78);
+  text-align: center;
+  position: relative;
+  z-index: 2;
+}
+
 .facility-title {
   font-size: 2.2rem;
   font-weight: 700;

@@ -3,7 +3,7 @@ import "../App.css";
 
 const FacilitiesPage = () => (
   <div className="home-container">
-    <div className="gallery-container">
+    <div className="facility-container">
       <h2 className="facility-title">Facilities Available</h2>
       <div className="facilities-grid">
 
