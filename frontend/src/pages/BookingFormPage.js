@@ -181,16 +181,15 @@ const BookingFormPage = () => {
               <option value="Non-Veg">Non-Veg</option>
               <option value="Both">Both</option>
             </select>
-
           </div>
 
           <div className="time-row">
-
             <input
               type="date"
               name="from_date"
               value={formData.from_date}
               onChange={handleChange}
+              title="From Date"
               required
             />
             {errors.from_date && <span className="error-text">{errors.from_date}</span>}
@@ -200,6 +199,7 @@ const BookingFormPage = () => {
               name="to_date"
               value={formData.to_date}
               onChange={handleChange}
+              title="To Date"
               required
             />
             {errors.to_date && <span className="error-text">{errors.to_date}</span>}
@@ -209,6 +209,7 @@ const BookingFormPage = () => {
               name="start_time"
               value={formData.start_time}
               onChange={handleChange}
+              title="Start Time"
             />
 
             <input
@@ -216,8 +217,8 @@ const BookingFormPage = () => {
               name="end_time"
               value={formData.end_time}
               onChange={handleChange}
+              title="End Time"
             />
-
           </div>
 
           <textarea
