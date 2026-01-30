@@ -775,7 +775,7 @@ h2, h3 {
 
 .gallery-subtitle {
   text-align: center;
-  color:black;
+  color: black;
   font-size: 1.6rem;
   margin-bottom: 40px;
 }
@@ -946,6 +946,19 @@ h2, h3 {
 /* ===============================
    💰 PRICING
    =============================== */
+
+.pricing-container {
+  width: 100%;
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 35px 40px;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.78);
+  text-align: center;
+  position: relative;
+  z-index: 2;
+}
+
 .price-title {
   font-size: 2.2rem;
   font-weight: 700;

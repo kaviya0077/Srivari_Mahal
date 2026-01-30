@@ -3,7 +3,7 @@ import "../App.css";
 
 const PricingPage = () => (
   <div className="home-container">
-    <div className="gallery-container">
+    <div className="pricing-container">
       <h2 className="price-title">Pricing & Packages</h2>
       <div className="pricing-grid">
 
