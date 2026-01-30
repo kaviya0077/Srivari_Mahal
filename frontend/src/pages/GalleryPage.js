@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import "../App.css";
 
 const galleryImages = [
@@ -15,37 +15,91 @@ const galleryImages = [
   require("../assets/mahal11.webp"),
   require("../assets/mahal12.webp"),
   require("../assets/mahal13.webp"),
+  require("../assets/mahal14.jpeg"),
+  require("../assets/mahal15.jpeg"),
+  require("../assets/mahal16.jpeg"),
 ];
 
 const GalleryPage = () => {
-  const [index, setIndex] = useState(0);
-  const [paused, setPaused] = useState(false);
-  useEffect(() => {
-    if (paused) return;
-    const timer = setInterval(() => {
-      setIndex((prev) => (prev + 1) % galleryImages.length);
-    }, 3000);
-    return () => clearInterval(timer);
-  }, [paused]);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  const openModal = (index) => {
+    setCurrentIndex(index);
+    setSelectedImage(galleryImages[index]);
+  };
+
+  const closeModal = () => {
+    setSelectedImage(null);
+  };
+
+  const nextImage = () => {
+    const newIndex = (currentIndex + 1) % galleryImages.length;
+    setCurrentIndex(newIndex);
+    setSelectedImage(galleryImages[newIndex]);
+  };
+
+  const prevImage = () => {
+    const newIndex = (currentIndex - 1 + galleryImages.length) % galleryImages.length;
+    setCurrentIndex(newIndex);
+    setSelectedImage(galleryImages[newIndex]);
+  };
+
+  // Handle keyboard navigation
+  const handleKeyDown = (e) => {
+    if (!selectedImage) return;
+    if (e.key === 'ArrowRight') nextImage();
+    if (e.key === 'ArrowLeft') prevImage();
+    if (e.key === 'Escape') closeModal();
+  };
+
+  React.useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedImage, currentIndex]);
 
   return (
     <div className="home-container">
-      <div className="gallery-container">
-        <h2 className="gallery-title">Our Gallery</h2>
-        <div
-          className="gallery-slider"
-          onMouseEnter={() => setPaused(true)}
-          onMouseLeave={() => setPaused(false)}
-        >
-          {galleryImages.map((img, i) => (
-            <div
-              className={`gallery-slide ${i === index ? "active" : ""}`}
-              key={i}
+      <div className="gallery-grid-container">
+        <h2 className="gallery-grid-title">Our Gallery</h2>
+        <p className="gallery-subtitle">Explore our beautiful venue through images</p>
+        
+        <div className="gallery-grid">
+          {galleryImages.map((img, index) => (
+            <div 
+              className="gallery-grid-item" 
+              key={index}
+              onClick={() => openModal(index)}
             >
-              <img src={img} alt={`gallery-${i}`} />
+              <img src={img} alt={`Gallery ${index + 1}`} />
+              <div className="gallery-overlay">
+                <span className="gallery-overlay-text">View Image</span>
+              </div>
             </div>
           ))}
         </div>
+
+        {/* Modal/Lightbox */}
+        {selectedImage && (
+          <div className="gallery-modal" onClick={closeModal}>
+            <span className="gallery-modal-close">&times;</span>
+            
+            <button className="gallery-modal-prev" onClick={(e) => { e.stopPropagation(); prevImage(); }}>
+              &#10094;
+            </button>
+            
+            <div className="gallery-modal-content" onClick={(e) => e.stopPropagation()}>
+              <img src={selectedImage} alt="Full size" />
+              <div className="gallery-modal-caption">
+                Image {currentIndex + 1} of {galleryImages.length}
+              </div>
+            </div>
+            
+            <button className="gallery-modal-next" onClick={(e) => { e.stopPropagation(); nextImage(); }}>
+              &#10095;
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
