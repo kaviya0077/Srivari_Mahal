@@ -73,6 +73,38 @@ class Booking(models.Model):
 
             if conflicting_time.exists():
                 raise ValidationError("Time slot is already booked.")
+                """Validate booking data"""
+        print(f"🔍 Running model clean() for booking pk={self.pk}")
+        
+        # Check date range
+        if self.to_date < self.from_date:
+            raise ValidationError({
+                'to_date': 'End date must be after start date.'
+            })
+        
+        # Check for overlapping bookings
+        conflicting = Booking.objects.filter(
+            from_date__lte=self.to_date,
+            to_date__gte=self.from_date,
+        )
+        
+        # ✅ CRITICAL: Exclude current booking when editing
+        if self.pk:
+            conflicting = conflicting.exclude(pk=self.pk)
+        
+        # Only check approved bookings
+        conflicting = conflicting.filter(status='approved')
+        
+        if conflicting.exists():
+            conflict = conflicting.first()
+            raise ValidationError({
+                'non_field_errors': [
+                    f'This date range conflicts with booking #{conflict.id} '
+                    f'({conflict.event_type} on {conflict.from_date})'
+                ]
+            })
+        
+        print("✅ Model clean() passed")
 
 class Expense(models.Model):
     function_date = models.DateField()

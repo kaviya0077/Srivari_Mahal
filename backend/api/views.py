@@ -1,8 +1,8 @@
 # backend/api/views.py
-
 import csv
 import stripe
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework import viewsets, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -13,8 +13,14 @@ from django.http import HttpResponse
 from datetime import datetime, time as dtime, timedelta
 from .utils import send_booking_confirmation
 from reportlab.pdfgen import canvas
-from .models import Booking
-from .serializers import BookingSerializer
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from .models import Booking, Expense
+from .serializers import BookingSerializer, ExpenseSerializer
+
 stripe.api_key = "YOUR_SECRET_KEY"
 
 
@@ -24,6 +30,35 @@ stripe.api_key = "YOUR_SECRET_KEY"
 class BookingViewSet(viewsets.ModelViewSet):
     queryset = Booking.objects.all().order_by('-from_date')
     serializer_class = BookingSerializer
+
+    def update(self, request, *args, **kwargs):
+        """Override update to add debug logging"""
+        print("=" * 50)
+        print("📥 PATCH REQUEST RECEIVED")
+        print(f"Booking ID: {kwargs.get('pk')}")
+        print(f"Request Data: {request.data}")
+        print("=" * 50)
+        
+        try:
+            partial = kwargs.pop('partial', False)
+            instance = self.get_object()
+            serializer = self.get_serializer(instance, data=request.data, partial=partial)
+            serializer.is_valid(raise_exception=True)
+            self.perform_update(serializer)
+            print("✅ Update successful")
+            return Response(serializer.data)
+        except Exception as e:
+            print(f"❌ Update failed: {str(e)}")
+            if hasattr(e, 'detail'):
+                print(f"Error details: {e.detail}")
+            import traceback
+            traceback.print_exc()
+            raise
+
+    def partial_update(self, request, *args, **kwargs):
+        """Override partial_update for PATCH requests"""
+        kwargs['partial'] = True
+        return self.update(request, *args, **kwargs)
 
     def create(self, request, *args, **kwargs):
         """
@@ -289,16 +324,11 @@ def create_payment_intent(request):
         return Response({"clientSecret": intent["client_secret"]})
     except Exception as e:
         return Response({"error": str(e)}, status=400)
-    
 
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER, TA_LEFT
-from django.http import HttpResponse
-from datetime import datetime
-from .models import Booking
+
+# ======================================================
+# 📄 BOOKING RECEIPT (PDF) - Updated with GET support
+# ======================================================
 
 def draw_modern_header(c, doc):
     """Draw modern header with gradient background"""
@@ -317,16 +347,43 @@ def draw_modern_header(c, doc):
     c.setLineWidth(2)
     c.line(40, height - 88, width - 40, height - 88)
 
+
+@api_view(['GET'])  # ✅ Changed to use GET only with query params
+@permission_classes([AllowAny])
 def booking_receipt(request, pk):
     try:
         booking = Booking.objects.get(pk=pk)
     except Booking.DoesNotExist:
         return HttpResponse("Booking not found", status=404)
 
-    response = HttpResponse(content_type="application/pdf")
-    response["Content-Disposition"] = f'attachment; filename="SriVari_Receipt_{booking.id}.pdf"'
+    # ✅ Get custom data from query parameters
+    receipt_number = request.GET.get('receipt_number', f"SVM-{str(booking.id).zfill(4)}")
+    issue_date_str = request.GET.get('issue_date')
+    admin_remarks = request.GET.get('admin_remarks', '')
 
-    # Create PDF with optimized margins for full single page
+    print("=" * 50)
+    print("📄 GENERATING RECEIPT")
+    print(f"Booking ID: {pk}")
+    print(f"Receipt Number: {receipt_number}")
+    print(f"Issue Date: {issue_date_str}")
+    print(f"Admin Remarks: '{admin_remarks}'")
+    print(f"Admin Remarks Length: {len(admin_remarks)}")
+    print(f"Has Admin Remarks: {bool(admin_remarks and admin_remarks.strip())}")
+    print("=" * 50)
+    
+    # Parse issue date
+    if issue_date_str:
+        try:
+            issue_date = datetime.strptime(issue_date_str, '%Y-%m-%d')
+        except:
+            issue_date = booking.created_at
+    else:
+        issue_date = booking.created_at
+
+    response = HttpResponse(content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="Receipt_{receipt_number.replace("/", "_")}.pdf"'
+
+    # Create PDF with optimized margins
     doc = SimpleDocTemplate(
         response, 
         pagesize=A4,
@@ -339,11 +396,7 @@ def booking_receipt(request, pk):
     styles = getSampleStyleSheet()
     story = []
 
-    # ==========================================
-    # CUSTOM STYLES
-    # ==========================================
-    
-    # Label style
+    # Custom Styles
     label_style = ParagraphStyle(
         'Label',
         parent=styles['Normal'],
@@ -354,7 +407,6 @@ def booking_receipt(request, pk):
         leading=13
     )
     
-    # Value style
     value_style = ParagraphStyle(
         'Value',
         parent=styles['Normal'],
@@ -365,7 +417,6 @@ def booking_receipt(request, pk):
         leading=14
     )
     
-    # Section Header Style
     section_style = ParagraphStyle(
         'SectionHeader',
         parent=styles['Heading2'],
@@ -378,7 +429,6 @@ def booking_receipt(request, pk):
         leftIndent=10
     )
     
-    # Footer style
     footer_style = ParagraphStyle(
         'Footer',
         parent=styles['Normal'],
@@ -388,21 +438,23 @@ def booking_receipt(request, pk):
         leading=11
     )
 
-    # ==========================================
-    # RECEIPT INFO BAR
-    # ==========================================
-    
+    # Receipt Info Bar
     story.append(Spacer(1, 4))
+    
+    # Format issue date
+    if isinstance(issue_date, datetime):
+        formatted_issue_date = issue_date.strftime('%d %b %Y')
+    else:
+        formatted_issue_date = issue_date.strftime('%d %b %Y') if hasattr(issue_date, 'strftime') else str(issue_date)
     
     receipt_data = [
         [
-            Paragraph(f"<b>Receipt #:</b> SVM-{str(booking.id).zfill(4)}", value_style),
-            Paragraph(f"<b>Issue Date:</b> {booking.created_at.strftime('%d %b %Y')}", value_style),
+            Paragraph(f"<b>Receipt #:</b> {receipt_number}", value_style),
+            Paragraph(f"<b>Issue Date:</b> {formatted_issue_date}", value_style),
             Paragraph(f"<b>Status:</b> <font color='{'#155724' if booking.status=='approved' else '#856404' if booking.status=='pending' else '#721c24'}'>{booking.status.upper()}</font>", value_style)
         ]
     ]
     
-    # Status-based color
     status_colors = {
         'pending': colors.HexColor("#fff9e6"),
         'approved': colors.HexColor("#e8f5e9"),
@@ -423,10 +475,7 @@ def booking_receipt(request, pk):
     story.append(receipt_table)
     story.append(Spacer(1, 10))
 
-    # ==========================================
-    # CUSTOMER DETAILS
-    # ==========================================
-    
+    # Customer Details
     story.append(Paragraph("CUSTOMER INFORMATION", section_style))
     story.append(Spacer(1, 2))
     
@@ -452,14 +501,10 @@ def booking_receipt(request, pk):
     story.append(customer_table)
     story.append(Spacer(1, 10))
 
-    # ==========================================
-    # EVENT DETAILS
-    # ==========================================
-    
+    # Event Details
     story.append(Paragraph("EVENT DETAILS", section_style))
     story.append(Spacer(1, 2))
     
-    # Format dates nicely
     same_day = booking.from_date == booking.to_date
     if same_day:
         event_date_str = booking.from_date.strftime('%d %B %Y')
@@ -488,13 +533,10 @@ def booking_receipt(request, pk):
     
     story.append(event_table)
     
-    # ==========================================
-    # SPECIAL REQUESTS - Conditional
-    # ==========================================
-    
+    # Special Requests
     if booking.message:
         story.append(Spacer(1, 10))
-        story.append(Paragraph("SPECIAL REQUESTS", section_style))
+        story.append(Paragraph("ADDITIONAL INQUERIES", section_style))
         story.append(Spacer(1, 2))
         
         message_data = [[Paragraph(booking.message, value_style)]]
@@ -512,10 +554,35 @@ def booking_receipt(request, pk):
         
         story.append(message_table)
 
-    # ==========================================
-    # BOOKING STATUS BADGE
-    # ==========================================
-    
+    # Admin Remarks
+    if admin_remarks and admin_remarks.strip():
+        print("✅ Adding admin remarks to PDF")
+        story.append(Spacer(1, 10))
+        story.append(Paragraph("ADMIN REMARKS", section_style))
+        story.append(Spacer(1, 2))
+                
+        # ✅ Escape HTML special characters in admin_remarks
+        from html import escape
+        safe_remarks = escape(admin_remarks)
+        
+        remarks_data = [[Paragraph(safe_remarks, value_style)]]
+        
+        remarks_table = Table(remarks_data, colWidths=[540])
+        remarks_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor("#fffbe6")),
+            ('BOX', (0, 0), (-1, -1), 1.5, colors.HexColor("#ffc107")),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ('LEFTPADDING', (0, 0), (-1, -1), 12),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 12),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        
+        story.append(remarks_table)
+    else:
+        print("⚠️ No admin remarks to add")
+
+    # Status Badge
     story.append(Spacer(1, 12))
     
     status_badge_colors = {
@@ -551,11 +618,7 @@ def booking_receipt(request, pk):
     story.append(status_table)
     story.append(Spacer(1, 10))
 
-    # ==========================================
-    # FOOTER
-    # ==========================================
-    
-    # Divider
+    # Footer
     divider = Table([['']], colWidths=[540])
     divider.setStyle(TableStyle([
         ('LINEABOVE', (0, 0), (-1, -1), 1.5, colors.HexColor("#00bcd4")),
@@ -563,7 +626,6 @@ def booking_receipt(request, pk):
     story.append(divider)
     story.append(Spacer(1, 6))
     
-    # Thank you message
     story.append(Paragraph(
         "<b>Thank You for Choosing Sri Vari Mahal A/C!</b>",
         ParagraphStyle('ThankYou', parent=styles['Normal'], fontSize=11,
@@ -577,7 +639,6 @@ def booking_receipt(request, pk):
     ))
     story.append(Spacer(1, 5))
     
-    # Contact info - compact format
     contact_data = [
         [Paragraph("Phone: +91 98431 86231 | +91 88702 01981", footer_style)],
         [Paragraph("Email: srivarimahal2025kpm@gmail.com", footer_style)],
@@ -595,22 +656,16 @@ def booking_receipt(request, pk):
     story.append(contact_table)
     story.append(Spacer(1, 5))
     
-    # Disclaimer
     story.append(Paragraph(
         "<i>This is a computer-generated document. No signature required.</i>",
         ParagraphStyle('Disclaimer', parent=footer_style, fontSize=7,
                       textColor=colors.HexColor("#9e9e9e"))
     ))
 
-    # ==========================================
-    # BUILD PDF WITH HEADER ON FIRST PAGE
-    # ==========================================
-    
     def first_page(c, doc):
         c.saveState()
         draw_modern_header(c, doc)
         
-        # Add title and subtitle on the colored header
         width, height = A4
         c.setFont('Helvetica-Bold', 20)
         c.setFillColor(colors.white)
@@ -625,12 +680,10 @@ def booking_receipt(request, pk):
     doc.build(story, onFirstPage=first_page)
     return response
 
-from .models import Expense
-from .serializers import ExpenseSerializer
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-import csv
+
+# ======================================================
+# EXPENSES MANAGEMENT
+# ======================================================
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])

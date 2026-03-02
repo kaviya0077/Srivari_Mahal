@@ -158,8 +158,9 @@ const BookingFormPage = () => {
               <option value="Engagement">Engagement</option>
               <option value="Reception">Reception</option>
               <option value="Birthday">Birthday Party</option>
+              <option value="Babyshower">Baby Shower</option>
+              <option value="Puberty">Puberty Ceremony</option>
               <option value="Corporate">Corporate Event</option>
-              <option value="Other">Other</option>
             </select>
             {errors.event_type && <span className="error-text">{errors.event_type}</span>}
 

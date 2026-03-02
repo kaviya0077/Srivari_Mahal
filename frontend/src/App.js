@@ -14,12 +14,16 @@ import LoginPage from "./pages/LoginPage";
 
 // 🔐 Admin Pages
 import DashboardPage from "./pages/DashboardPage";
+import EditBookingPage from './pages/EditBookingPage';
 import BookingsPage from "./pages/BookingsPage";
 import AvailabilityPage from "./pages/AvailabilityPage";
 import ExpensesPage from "./pages/ExpensesPage";
 
 // 🛡️ Protected Route
 import ProtectedRoute from "./components/ProtectedRoute";
+
+// Private Route
+import PrivateRoute from "./components/PrivateRoute";
 
 import "./App.css";
 
@@ -35,6 +39,7 @@ function App() {
         <Route path="/pricing" element={<PricingPage />} />
         <Route path="/facilities" element={<FacilitiesPage />} />
         <Route path="/book-now" element={<BookingFormPage />} />
+        <Route path="/bookings/edit/:id" element={<PrivateRoute><EditBookingPage /></PrivateRoute>} />
         <Route path="/booking-success" element={<BookingSuccess />} />
         <Route path="/bookings/:id" element={<BookingDetailPage />} />
         <Route path="/login" element={<LoginPage />} />

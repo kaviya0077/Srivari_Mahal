@@ -1,12 +1,13 @@
 # backend/api/serializers.py
 from rest_framework import serializers
-from .models import Booking
-from .models import Expense
+from django.core.exceptions import ValidationError as DjangoValidationError
+from .models import Booking, Expense
 
 class ExpenseSerializer(serializers.ModelSerializer):
     class Meta:
         model = Expense
         fields = "__all__"
+        read_only_fields = ['id', 'created_at']
 
 class BookingSerializer(serializers.ModelSerializer):
     class Meta:
@@ -22,6 +23,46 @@ class BookingSerializer(serializers.ModelSerializer):
         - paid_amount must be >= advance_amount.
         - balance = total_amount - paid_amount.
         """
+        print("🔍 Running serializer validation...")
+        print(f"Data received: {data}")
+        
+        # Get the instance if this is an update
+        instance = self.instance
+        
+        # Merge with existing data if updating
+        if instance:
+            merged_data = {**instance.__dict__, **data}
+        else:
+            merged_data = data
+        
+        # Check date logic
+        from_date = merged_data.get('from_date')
+        to_date = merged_data.get('to_date')
+
+        from_date = merged_data.get('from_date')
+        to_date = merged_data.get('to_date')
+        
+        if from_date and to_date:
+            if to_date < from_date:
+                raise serializers.ValidationError({
+                    'to_date': 'End date must be after or equal to start date.'
+                })
+        
+        # Create temporary instance for model validation
+        temp_instance = instance if instance else Booking()
+        for key, value in data.items():
+            setattr(temp_instance, key, value)
+        
+        # Run model's clean() method
+        try:
+            temp_instance.clean()
+        except DjangoValidationError as e:
+            print(f"❌ Model validation failed: {e.message_dict}")
+            raise serializers.ValidationError(e.message_dict)
+        
+        print("✅ Validation passed")
+        return data
+    
         # total = data.get("total_amount", self.instance.total_amount if self.instance else 0)
         # advance = data.get("advance_amount", self.instance.advance_amount if self.instance else 0)
         # paid = data.get("paid_amount", self.instance.paid_amount if self.instance else 0)
@@ -40,7 +81,6 @@ class BookingSerializer(serializers.ModelSerializer):
         #     raise serializers.ValidationError({
         #         "paid_amount": "Advance amount must be fully paid before booking approval."
         #     })
-        return data
 
     # ============================
     #  💾 Update balance automatically

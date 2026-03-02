@@ -1247,7 +1247,6 @@ h2, h3 {
     width: 100% !important;
     height: 100%; 
     object-fit: cover;
-    /* display: block !important; */
   }
 
   .event-card h3 {
@@ -1881,11 +1880,7 @@ table tbody td button:last-child:hover {
   align-items: center;
   z-index: 1000;
   animation: fadeIn 0.3s ease;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  padding: 10px;
 }
 
 /* Modal Content */
@@ -1955,6 +1950,31 @@ table tbody td button:last-child:hover {
   border-radius: 0;
   box-shadow: none;
   margin-bottom: 0;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 15px;
+}
+
+.modal-content input,
+.modal-content select,
+.modal-content textarea {
+  width: 100%;
+  padding: 12px 15px;
+  border: 2px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  background: #fafafa;
+  transition: all 0.3s ease;
+  font-family: inherit;
+}
+
+.modal-content input:focus,
+.modal-content select:focus,
+.modal-content textarea:focus {
+  outline: none;
+  border-color: #4b6cb7;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(75, 108, 183, 0.1);
 }
 
 /* Modal Footer */
@@ -2000,4 +2020,288 @@ table tbody td button:last-child:hover {
   background: #5a6268;
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(108, 117, 125, 0.4);
+}
+
+/* Edit Button */
+.btn-edit {
+  padding: 10px 16px;
+  background: linear-gradient(90deg, #6a11cb, #2a0845);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.btn-edit:hover {
+  background: linear-gradient(135deg, #d3a6ff 0%, #7a1fe0 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(106, 13, 173, 0.25);
+  color: black;
+}
+
+/* ===============================
+   📱 MODAL & EDIT FORM MOBILE STYLES
+   =============================== */
+
+/* Custom dropdown styling */
+.modal-content select {
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234b6cb7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 18px;
+  padding-right: 38px;
+  cursor: pointer;
+}
+
+/* Remove spinner from number inputs */
+.modal-content input[type=number]::-webkit-outer-spin-button,
+.modal-content input[type=number]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.modal-content input[type=number] {
+  -moz-appearance: textfield;
+}
+
+/* ===============================
+   📱 TABLET RESPONSIVE (768px - 900px)
+   =============================== */
+
+@media (max-width: 900px) {
+  .modal-content {
+    width: 95%;
+    max-height: 85vh;
+  }
+
+  .modal-header {
+    padding: 18px 20px;
+  }
+
+  .modal-header h3 {
+    font-size: 1.3rem;
+  }
+
+  .modal-content .form {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    padding: 20px;
+  }
+
+  .modal-footer {
+    padding: 15px 20px;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .btn-save,
+  .btn-cancel {
+    padding: 10px 20px;
+    font-size: 0.95rem;
+  }
+}
+
+/* ===============================
+   📱 MOBILE RESPONSIVE (≤ 768px)
+   =============================== */
+
+@media (max-width: 768px) {
+  .modal-overlay {
+    padding: 10px;
+  }
+
+  .modal-content {
+    width: 96%;
+    max-height: 90vh;
+    border-radius: 10px;
+    margin: 10px auto;
+  }
+
+  .modal-header {
+    padding: 15px 18px;
+    position: sticky;
+    top: 0;
+    background: white;
+    z-index: 10;
+    border-bottom: 2px solid #f0f0f0;
+  }
+
+  .modal-header h3 {
+    font-size: 1.2rem;
+    width: 100%;
+    margin-bottom: 8px;
+  }
+
+  .modal-close {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    width: 36px;
+    height: 36px;
+    font-size: 1.8rem;
+  }
+
+  /* Full width single column on mobile */
+  .modal-content .form {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 15px;
+  }
+
+  .modal-content input,
+  .modal-content select,
+  .modal-content textarea {
+    width: 100%;
+    font-size: 16px;
+    padding: 12px 14px;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    background: #fafafa;
+  }
+
+  .modal-content input:focus,
+  .modal-content select:focus,
+  .modal-content textarea:focus {
+    outline: none;
+    border-color: #4b6cb7;
+    background: white;
+    box-shadow: 0 0 0 3px rgba(75, 108, 183, 0.1);
+  }
+
+  .modal-footer {
+    flex-direction: column;
+    padding: 15px;
+    gap: 10px;
+    border-top: 2px solid #f0f0f0;
+    background: #f8f9fa;
+  }
+
+  .btn-save,
+  .btn-cancel {
+    width: 100%;
+    padding: 12px;
+    font-size: 15px;
+    min-height: 44px;
+  }
+
+  .btn-save {
+    background: #4CAF50;
+    color: white;
+  }
+
+  .btn-save:hover {
+    background: #45a049;
+  }
+
+  .btn-cancel {
+    background: #6c757d;
+    color: white;
+  }
+
+  .btn-cancel:hover {
+    background: #5a6268;
+  }
+}
+
+/* ===============================
+   📱 SMALL PHONES (≤ 480px)
+   =============================== */
+
+@media (max-width: 480px) {
+  .modal-overlay {
+    padding: 5px;
+  }
+
+  .modal-content {
+    width: 100%;
+    max-height: calc(100vh - 10px);
+    border-radius: 8px;
+  }
+
+  .modal-header {
+    padding: 12px 15px;
+  }
+
+  .modal-header h3 {
+    font-size: 1.1rem;
+  }
+
+  .modal-close {
+    width: 32px;
+    height: 32px;
+    font-size: 1.6rem;
+  }
+
+  .modal-content .form {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .modal-content input,
+  .modal-content select,
+  .modal-content textarea {
+    font-size: 16px;
+    padding: 11px 12px;
+  }
+
+  .modal-footer {
+    padding: 12px;
+  }
+
+  .btn-save,
+  .btn-cancel {
+    padding: 11px 12px;
+    font-size: 14px;
+  }
+}
+
+/* ===============================
+   🌐 LANDSCAPE MODE (Optional)
+   =============================== */
+
+@media (max-width: 900px) and (orientation: landscape) {
+  .modal-content {
+    max-height: 80vh;
+    width: 90%;
+  }
+
+  .modal-content .form {
+    gap: 10px;
+    padding: 18px;
+  }
+}
+
+/* ===============================
+   🔧 UNIVERSAL INPUT FIXES
+   =============================== */
+
+/* Prevent iOS input zoom */
+input, select, textarea {
+  font-size: 16px !important;
+}
+
+/* Date and time input styling */
+.modal-content input[type="date"],
+.modal-content input[type="time"] {
+  position: relative;
+  cursor: pointer;
+}
+
+.modal-content input[type="date"]::-webkit-calendar-picker-indicator,
+.modal-content input[type="time"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  border-radius: 4px;
+  margin-right: 2px;
+  opacity: 0.6;
+  filter: invert(0.8);
+}
+
+/* Smooth scrolling for modal */
+.modal-content {
+  -webkit-overflow-scrolling: touch;
 }

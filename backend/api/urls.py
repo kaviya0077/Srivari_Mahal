@@ -2,54 +2,52 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
-    BookingViewSet,  # ✅ Added ViewSet import
-    booking_detail,
-    booking_receipt,
+    BookingViewSet,
+    booking_receipt,  # ✅ Make sure imported
     booking_dates,
     dashboard_stats,
     export_bookings_csv,
     update_booking_status,
+    update_payment,
+    create_payment_intent,
     expenses_list,
     expense_detail,
     export_expenses,
-    # update_payment,  # ✅ Added for payment updates
-    # create_payment_intent,  # ✅ Added for Stripe
 )
 
-# ✅ Create router for ViewSet
+# Router for ViewSet
 router = DefaultRouter()
 router.register(r'bookings', BookingViewSet, basename='booking')
 
 urlpatterns = [
-# 📌 Availability Calendar - MUST come before router
-    path("bookings/dates/", booking_dates, name="booking-dates"),
+    # ⚠️ CRITICAL: ALL specific booking routes MUST come BEFORE router
     
-    # 📌 Export CSV - MUST come before router
-    path("bookings/export/", export_bookings_csv, name="export-bookings-csv"),
-    
-    # 📌 Booking receipt
+    # 📌 Receipt - MUST be first
     path("bookings/<int:pk>/receipt/", booking_receipt, name="booking-receipt"),
     
-    # 📌 Approve / Reject booking
+    # 📌 Booking dates calendar
+    path("bookings/dates/", booking_dates, name="booking-dates"),
+    
+    # 📌 Export CSV
+    path("bookings/export/", export_bookings_csv, name="export-bookings-csv"),
+    
+    # 📌 Update status
     path("bookings/<int:pk>/status/", update_booking_status, name="booking-status"),
     
-    # 📌 Payment update
-    # path("bookings/<int:pk>/payment/", update_payment, name="update-payment"),
+    # 📌 Update payment
+    path("bookings/<int:pk>/payment/", update_payment, name="update-payment"),
     
-    # 📌 Get single booking
-    path("bookings/<int:pk>/", booking_detail, name="booking-detail"),
-    
-    # ✅ NOW include router (this creates /bookings/ for list/create)
+    # ✅ NOW include router (creates /bookings/ list and /bookings/<id>/ detail)
     path('', include(router.urls)),
     
     # 📌 Dashboard
     path("dashboard-stats/", dashboard_stats, name="dashboard-stats"),
     
-    # 📌 Stripe payment intent
-    # path("create-payment-intent/", create_payment_intent, name="create-payment-intent"),
+    # 📌 Payment
+    path("create-payment-intent/", create_payment_intent, name="create-payment-intent"),
     
     # 📌 Expenses
-    path("expenses/", expenses_list),
-    path("expenses/<int:pk>/", expense_detail),
-    path("expenses/export/", export_expenses),
+    path("expenses/", expenses_list, name="expenses-list"),
+    path("expenses/<int:pk>/", expense_detail, name="expense-detail"),
+    path("expenses/export/", export_expenses, name="export-expenses"),
 ]
