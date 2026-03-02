@@ -558,7 +558,7 @@ def booking_receipt(request, pk):
     if admin_remarks and admin_remarks.strip():
         print("✅ Adding admin remarks to PDF")
         story.append(Spacer(1, 10))
-        story.append(Paragraph("ADMIN REMARKS", section_style))
+        story.append(Paragraph("FURTHER DETAILS", section_style))
         story.append(Spacer(1, 2))
                 
         # ✅ Escape HTML special characters in admin_remarks
