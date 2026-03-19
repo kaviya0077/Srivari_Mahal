@@ -1,7 +1,12 @@
-# backend/api/views.py
 import csv
+import os
 import stripe
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment
+from io import BytesIO
+from PIL import Image
 from django.utils import timezone
+from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework import viewsets, status
 from rest_framework.decorators import api_view, permission_classes
@@ -13,13 +18,15 @@ from django.http import HttpResponse
 from datetime import datetime, time as dtime, timedelta
 from .utils import send_booking_confirmation
 from reportlab.pdfgen import canvas
+from reportlab.lib.utils import ImageReader
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from .models import Booking, Expense
 from .serializers import BookingSerializer, ExpenseSerializer
+from django.views.decorators.http import require_GET
 
 stripe.api_key = "YOUR_SECRET_KEY"
 
@@ -116,6 +123,11 @@ def bookings_list(request):
         # status will ALWAYS begin as pending
         data = request.data.copy()
         data["status"] = "pending"
+        data["status"] = "pending"
+        if not data.get("email"):
+            data["email"] = ""
+        if not data.get("alternate_phone"):
+            data["alternate_phone"] = ""
 
         serializer = BookingSerializer(data=data)
         try:
@@ -222,15 +234,66 @@ def dashboard_stats(request):
 # ======================================================
 # 🟢 EXPORT CSV
 # ======================================================
-@api_view(['GET'])
-@permission_classes([AllowAny])
+# ✅ Uses a plain Django view (not @api_view) to avoid DRF's 406 content negotiation
+@require_GET
 def export_bookings_csv(request):
-    response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = 'attachment; filename="bookings.csv"'
-    writer = csv.writer(response)
-    writer.writerow(['ID', 'Name', 'Phone', 'Email', 'Event Type', 'From Date', 'To Date', 'Start Time', 'End Time', 'Message'])
-    for b in Booking.objects.all().order_by('-from_date'):
-        writer.writerow([b.id, b.name, b.phone, b.email, b.event_type, b.from_date, b.to_date, b.start_time, b.end_time, b.message])
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Bookings"
+
+    # Header row styling
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = PatternFill("solid", fgColor="4B6CB7")
+    header_align = Alignment(horizontal="center", vertical="center")
+
+    headers = [
+        'ID', 'Name', 'Phone', 'Email', 'Event Type',
+        'From Date', 'To Date', 'Start Time', 'End Time',
+        'Status', 'Estimated Guests', 'Food Preference',
+        'Alternate Phone', 'Message'
+    ]
+
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col_num, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_align
+
+    # Data rows — ascending order by ID
+    for b in Booking.objects.all().order_by('id'):
+        ws.append([
+            b.id,
+            b.name,
+            b.phone,
+            b.email,
+            b.event_type,
+            str(b.from_date) if b.from_date else '',
+            str(b.to_date) if b.to_date else '',
+            str(b.start_time) if b.start_time else '',
+            str(b.end_time) if b.end_time else '',
+            b.status,
+            b.estimated_guests,
+            b.food_preference or '',
+            b.alternate_phone or '',
+            b.message or '',
+        ])
+
+    # Auto-fit column widths
+    for col in ws.columns:
+        max_len = max((len(str(cell.value)) if cell.value else 0) for cell in col)
+        ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 40)
+
+    # Write to buffer and return
+    buffer = BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+
+    today = datetime.now().strftime("%Y-%m-%d")
+    response = HttpResponse(
+        buffer.read(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="sri_vari_mahal_bookings_{today}.xlsx"'
     return response
 
 # ======================================================
@@ -348,7 +411,7 @@ def draw_modern_header(c, doc):
     c.line(40, height - 88, width - 40, height - 88)
 
 
-@api_view(['GET'])  # ✅ Changed to use GET only with query params
+@api_view(['GET'])
 @permission_classes([AllowAny])
 def booking_receipt(request, pk):
     try:
@@ -362,15 +425,15 @@ def booking_receipt(request, pk):
     admin_remarks = request.GET.get('admin_remarks', '')
 
     print("=" * 50)
-    print("📄 GENERATING RECEIPT")
+    print("GENERATING RECEIPT")
     print(f"Booking ID: {pk}")
     print(f"Receipt Number: {receipt_number}")
-    print(f"Issue Date: {issue_date_str}")
+    print(f"Booking Date: {issue_date_str}")
     print(f"Admin Remarks: '{admin_remarks}'")
     print(f"Admin Remarks Length: {len(admin_remarks)}")
     print(f"Has Admin Remarks: {bool(admin_remarks and admin_remarks.strip())}")
     print("=" * 50)
-    
+
     # Parse issue date
     if issue_date_str:
         try:
@@ -385,14 +448,14 @@ def booking_receipt(request, pk):
 
     # Create PDF with optimized margins
     doc = SimpleDocTemplate(
-        response, 
+        response,
         pagesize=A4,
         rightMargin=38,
         leftMargin=38,
         topMargin=98,
         bottomMargin=32
     )
-    
+
     styles = getSampleStyleSheet()
     story = []
 
@@ -406,7 +469,7 @@ def booking_receipt(request, pk):
         fontName='Helvetica-Bold',
         leading=13
     )
-    
+
     value_style = ParagraphStyle(
         'Value',
         parent=styles['Normal'],
@@ -416,7 +479,7 @@ def booking_receipt(request, pk):
         fontName='Helvetica',
         leading=14
     )
-    
+
     section_style = ParagraphStyle(
         'SectionHeader',
         parent=styles['Heading2'],
@@ -428,7 +491,7 @@ def booking_receipt(request, pk):
         fontName='Helvetica-Bold',
         leftIndent=10
     )
-    
+
     footer_style = ParagraphStyle(
         'Footer',
         parent=styles['Normal'],
@@ -439,53 +502,61 @@ def booking_receipt(request, pk):
     )
 
     # Receipt Info Bar
-    story.append(Spacer(1, 4))
-    
+    story.append(Spacer(1, 5))
+
     # Format issue date
     if isinstance(issue_date, datetime):
         formatted_issue_date = issue_date.strftime('%d %b %Y')
     else:
         formatted_issue_date = issue_date.strftime('%d %b %Y') if hasattr(issue_date, 'strftime') else str(issue_date)
-    
+
+    # Add a right-aligned style just for the booking date cell
+    receipt_right_style = ParagraphStyle(
+        'ReceiptRight',
+        parent=value_style,
+        alignment=TA_RIGHT,
+    )
+
     receipt_data = [
         [
-            Paragraph(f"<b>Receipt #:</b> {receipt_number}", value_style),
-            Paragraph(f"<b>Issue Date:</b> {formatted_issue_date}", value_style),
-            Paragraph(f"<b>Status:</b> <font color='{'#155724' if booking.status=='approved' else '#856404' if booking.status=='pending' else '#721c24'}'>{booking.status.upper()}</font>", value_style)
+            Paragraph(f"<b>Receipt:</b> {receipt_number}", value_style),
+            Paragraph(f"<b>Booking Date:</b> {formatted_issue_date}", receipt_right_style),
         ]
     ]
-    
+
     status_colors = {
         'pending': colors.HexColor("#fff9e6"),
         'approved': colors.HexColor("#e8f5e9"),
         'rejected': colors.HexColor("#ffebee")
     }
-    
-    receipt_table = Table(receipt_data, colWidths=[180, 180, 180])
+
+    receipt_table = Table(receipt_data, colWidths=[270, 270])
     receipt_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), status_colors.get(booking.status.lower(), colors.HexColor("#f5f5f5"))),
         ('BOX', (0, 0), (-1, -1), 1.5, colors.HexColor("#00bcd4")),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+        ('VALIGN', (1, 0), (1, 0), 'RIGHT'),
         ('TOPPADDING', (0, 0), (-1, -1), 9),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 9),
+        ('LEFTPADDING', (0, 0), (-1, -1), 12),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 12),
         ('FONTSIZE', (0, 0), (-1, -1), 10),
     ]))
-    
+
     story.append(receipt_table)
     story.append(Spacer(1, 10))
 
-    # Customer Details
+    # Customer Information
     story.append(Paragraph("CUSTOMER INFORMATION", section_style))
     story.append(Spacer(1, 2))
-    
+
     customer_data = [
         [Paragraph("Full Name", label_style), Paragraph(booking.name, value_style)],
-        [Paragraph("Contact", label_style), Paragraph(booking.phone, value_style)],
-        [Paragraph("Email", label_style), Paragraph(booking.email or "Not Provided", value_style)],
-        [Paragraph("Address", label_style), Paragraph(booking.address_line or "Not Provided", value_style)],
+        [Paragraph("Contact", label_style), Paragraph(booking.phone or "NA", value_style)],
+        [Paragraph("Email", label_style), Paragraph(booking.email or "NA", value_style)],
+        [Paragraph("Address", label_style), Paragraph(booking.address_line or "NA", value_style)],
     ]
-    
+
     customer_table = Table(customer_data, colWidths=[130, 410])
     customer_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor("#e3f2fd")),
@@ -497,28 +568,32 @@ def booking_receipt(request, pk):
         ('RIGHTPADDING', (0, 0), (-1, -1), 12),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
     ]))
-    
+
     story.append(customer_table)
     story.append(Spacer(1, 10))
 
     # Event Details
     story.append(Paragraph("EVENT DETAILS", section_style))
     story.append(Spacer(1, 2))
-    
+
     same_day = booking.from_date == booking.to_date
     if same_day:
         event_date_str = booking.from_date.strftime('%d %B %Y')
     else:
         event_date_str = f"{booking.from_date.strftime('%d %b')} - {booking.to_date.strftime('%d %b %Y')}"
-    
+
     event_data = [
         [Paragraph("Event Type", label_style), Paragraph(booking.event_type, value_style)],
         [Paragraph("Event Date", label_style), Paragraph(event_date_str, value_style)],
-        [Paragraph("Event Time", label_style), Paragraph(f"{booking.start_time.strftime('%I:%M %p')} - {booking.end_time.strftime('%I:%M %p')}", value_style)],
+        [Paragraph("Event Time", label_style), Paragraph(
+            f"{booking.start_time.strftime('%I:%M %p') if booking.start_time else 'N/A'} - "
+            f"{booking.end_time.strftime('%I:%M %p') if booking.end_time else 'N/A'}",
+            value_style
+        )],
         [Paragraph("Expected Guests", label_style), Paragraph(f"{booking.estimated_guests} Guests", value_style)],
         [Paragraph("Food Preference", label_style), Paragraph(booking.food_preference or "To be decided", value_style)],
     ]
-    
+
     event_table = Table(event_data, colWidths=[130, 410])
     event_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor("#e3f2fd")),
@@ -530,17 +605,16 @@ def booking_receipt(request, pk):
         ('RIGHTPADDING', (0, 0), (-1, -1), 12),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
     ]))
-    
+
     story.append(event_table)
-    
+
     # Special Requests
     if booking.message:
         story.append(Spacer(1, 10))
         story.append(Paragraph("ADDITIONAL INQUERIES", section_style))
         story.append(Spacer(1, 2))
-        
+
         message_data = [[Paragraph(booking.message, value_style)]]
-        
         message_table = Table(message_data, colWidths=[540])
         message_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor("#fff3e0")),
@@ -551,7 +625,7 @@ def booking_receipt(request, pk):
             ('RIGHTPADDING', (0, 0), (-1, -1), 12),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ]))
-        
+
         story.append(message_table)
 
     # Admin Remarks
@@ -560,13 +634,10 @@ def booking_receipt(request, pk):
         story.append(Spacer(1, 10))
         story.append(Paragraph("FURTHER DETAILS", section_style))
         story.append(Spacer(1, 2))
-                
-        # ✅ Escape HTML special characters in admin_remarks
+
         from html import escape
         safe_remarks = escape(admin_remarks)
-        
         remarks_data = [[Paragraph(safe_remarks, value_style)]]
-        
         remarks_table = Table(remarks_data, colWidths=[540])
         remarks_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor("#fffbe6")),
@@ -577,25 +648,25 @@ def booking_receipt(request, pk):
             ('RIGHTPADDING', (0, 0), (-1, -1), 12),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ]))
-        
+
         story.append(remarks_table)
     else:
         print("⚠️ No admin remarks to add")
 
     # Status Badge
     story.append(Spacer(1, 12))
-    
+
     status_badge_colors = {
         'pending': (colors.HexColor("#fff3cd"), colors.HexColor("#856404")),
         'approved': (colors.HexColor("#d4edda"), colors.HexColor("#155724")),
         'rejected': (colors.HexColor("#f8d7da"), colors.HexColor("#721c24"))
     }
-    
+
     bg_color, text_color = status_badge_colors.get(
-        booking.status.lower(), 
+        booking.status.lower(),
         (colors.HexColor("#e0e0e0"), colors.black)
     )
-    
+
     status_para = ParagraphStyle(
         'StatusBadge',
         parent=styles['Normal'],
@@ -604,9 +675,8 @@ def booking_receipt(request, pk):
         alignment=TA_CENTER,
         fontName='Helvetica-Bold'
     )
-    
+
     status_data = [[Paragraph(f"BOOKING STATUS: {booking.status.upper()}", status_para)]]
-    
     status_table = Table(status_data, colWidths=[540])
     status_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), bg_color),
@@ -614,7 +684,7 @@ def booking_receipt(request, pk):
         ('TOPPADDING', (0, 0), (-1, -1), 10),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
     ]))
-    
+
     story.append(status_table)
     story.append(Spacer(1, 10))
 
@@ -625,26 +695,26 @@ def booking_receipt(request, pk):
     ]))
     story.append(divider)
     story.append(Spacer(1, 6))
-    
+
     story.append(Paragraph(
-        "<b>Thank You for Choosing Sri Vari Mahal A/C!</b>",
+        "<b>Thank You for Choosing Sri Vari Thirumana Mandapam A/C</b>",
         ParagraphStyle('ThankYou', parent=styles['Normal'], fontSize=11,
-                      textColor=colors.HexColor("#1a237e"), alignment=TA_CENTER, 
-                      fontName='Helvetica-Bold', spaceAfter=4)
+                       textColor=colors.HexColor("#1a237e"), alignment=TA_CENTER,
+                       fontName='Helvetica-Bold', spaceAfter=4)
     ))
-    
+
     story.append(Paragraph(
         "We look forward to making your celebration truly memorable.",
         footer_style
     ))
     story.append(Spacer(1, 5))
-    
+
     contact_data = [
         [Paragraph("Phone: +91 98431 86231 | +91 88702 01981", footer_style)],
         [Paragraph("Email: srivarimahal2025kpm@gmail.com", footer_style)],
-        [Paragraph("Address: Sri Vari Mahal A/C - Grand Marriage & Party Hall, Kannadasan Street, Abirami Nagar, Baluchetty Chatram, Sirunaiperugal, Kanchipuram - 631551", footer_style)]
+        [Paragraph("Sri Vari Thirumana Mandapam A/C - Grand Marriage & Party Hall, Kannadasan Street, Abirami Nagar, Baluchetty Chatram, Sirunaiperugal, Kanchipuram - 631551", footer_style)]
     ]
-    
+
     contact_table = Table(contact_data, colWidths=[540])
     contact_table.setStyle(TableStyle([
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
@@ -652,34 +722,63 @@ def booking_receipt(request, pk):
         ('TOPPADDING', (0, 0), (-1, -1), 2),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
     ]))
-    
+
     story.append(contact_table)
     story.append(Spacer(1, 5))
-    
-    story.append(Paragraph(
-        "<i>This is a computer-generated document. No signature required.</i>",
-        ParagraphStyle('Disclaimer', parent=footer_style, fontSize=7,
-                      textColor=colors.HexColor("#9e9e9e"))
-    ))
 
+    # ✅ first_page defined INSIDE booking_receipt
     def first_page(c, doc):
+        width, height = A4
+
+        # Watermark
+        try:
+            webp_path = os.path.join(settings.BASE_DIR, "static", "images", "2025-09-16-converted.png")
+            img = Image.open(webp_path).convert("RGBA")
+            r, g, b, a = img.split()
+            a = a.point(lambda i: int(i * 0.35))
+            img.putalpha(a)
+
+            png_buffer = BytesIO()
+            img.save(png_buffer, format="PNG")
+            png_buffer.seek(0)
+
+            c.saveState()
+            c.drawImage(
+                ImageReader(png_buffer),
+                0, 0,
+                width=width,
+                height=height,
+                mask='auto',
+                preserveAspectRatio=False
+            )
+            c.restoreState()
+        except Exception as e:
+            print(f"⚠️ Watermark skipped: {e}")
+            try:
+                c.restoreState()
+            except:
+                pass
+
+        # Header
         c.saveState()
         draw_modern_header(c, doc)
-        
-        width, height = A4
         c.setFont('Helvetica-Bold', 20)
         c.setFillColor(colors.white)
-        c.drawCentredString(width / 2, height - 35, "SRI VARI MAHAL A/C")
-        
+        c.drawCentredString(width / 2, height - 35, "Sri Vari Thirumana Mandapam A/C")
         c.setFont('Helvetica', 9)
         c.setFillColor(colors.HexColor("#b3e5fc"))
         c.drawCentredString(width / 2, height - 50, "Grand Marriage & Party Hall")
         c.drawCentredString(width / 2, height - 62, "Booking Confirmation Receipt")
         c.restoreState()
 
-    doc.build(story, onFirstPage=first_page)
+    # ✅ Build PDF and return — both INSIDE booking_receipt
+    try:
+        doc.build(story, onFirstPage=first_page)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return HttpResponse(f"PDF generation failed: {str(e)}", status=500)
     return response
-
 
 # ======================================================
 # EXPENSES MANAGEMENT

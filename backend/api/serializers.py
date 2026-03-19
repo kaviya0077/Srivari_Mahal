@@ -10,6 +10,12 @@ class ExpenseSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at']
 
 class BookingSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(required=False, allow_blank=True, default='')
+    alternate_phone = serializers.CharField(required=False, allow_blank=True, default='')
+
+    class Meta:
+        model = Booking
+        fields = '__all__'
     class Meta:
         model = Booking
         fields = "__all__"
@@ -57,10 +63,10 @@ class BookingSerializer(serializers.ModelSerializer):
         try:
             temp_instance.clean()
         except DjangoValidationError as e:
-            print(f"❌ Model validation failed: {e.message_dict}")
+            print(f"Model validation failed: {e.message_dict}")
             raise serializers.ValidationError(e.message_dict)
         
-        print("✅ Validation passed")
+        print("Validation passed")
         return data
     
         # total = data.get("total_amount", self.instance.total_amount if self.instance else 0)

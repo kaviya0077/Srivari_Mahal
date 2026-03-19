@@ -1,4 +1,3 @@
-// src/pages/BookingFormPage.js
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../api";
@@ -6,7 +5,6 @@ import "../App.css";
 
 const BookingFormPage = () => {
   const navigate = useNavigate();
-  
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
@@ -41,17 +39,14 @@ const BookingFormPage = () => {
 
     try {
       const res = await API.post("/bookings/", formData);
-      console.log("✅ Booking Success:", res.data);
-      
-      // Navigate immediately with booking data
+      console.log("Booking Success:", res.data);
       navigate("/booking-success", {
         state: { booking: res.data },
-        replace: true // This prevents going back to form with submitted data
+        replace: true
       });
 
     } catch (err) {
-      console.error("❌ Booking Error:", err.response?.data || err.message);
-
+      console.error("Booking Error:", err.response?.data || err.message);
       if (err.response?.data) {
         setErrors(err.response.data);
       } else {
@@ -66,13 +61,11 @@ const BookingFormPage = () => {
     <div className="home-container">
       <div className="form-container">
         <h2>Book Your Event</h2>
-
         {errors.non_field_errors && (
           <div className="error-box">{errors.non_field_errors}</div>
         )}
 
         <form onSubmit={handleSubmit}>
-
           <input
             type="text"
             name="name"
@@ -108,7 +101,6 @@ const BookingFormPage = () => {
             placeholder="Email Address"
             value={formData.email}
             onChange={handleChange}
-            required
           />
           {errors.email && <span className="error-text">{errors.email}</span>}
 
@@ -146,7 +138,6 @@ const BookingFormPage = () => {
           />
 
           <div className="three-row">
-
             <select
               name="event_type"
               value={formData.event_type}
@@ -161,6 +152,7 @@ const BookingFormPage = () => {
               <option value="Babyshower">Baby Shower</option>
               <option value="Puberty">Puberty Ceremony</option>
               <option value="Corporate">Corporate Event</option>
+              <option value="Camp">Camping</option>
             </select>
             {errors.event_type && <span className="error-text">{errors.event_type}</span>}
 
@@ -181,6 +173,7 @@ const BookingFormPage = () => {
               <option value="Veg">Veg</option>
               <option value="Non-Veg">Non-Veg</option>
               <option value="Both">Both</option>
+              <option value="NA">NA</option>
             </select>
           </div>
 

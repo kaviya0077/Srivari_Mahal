@@ -2,6 +2,7 @@
 from django.db import models
 from django.db.models import Q
 from django.core.exceptions import ValidationError
+
 class Booking(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pending'),
@@ -10,9 +11,12 @@ class Booking(models.Model):
         ('cancelled', 'Cancelled'),
     ]
 
+    # ✅ CHANGE 1: Custom integer primary key (replaces Django's default auto id)
+    id = models.IntegerField(primary_key=True, editable=False)
+
     name = models.CharField(max_length=200)
     phone = models.CharField(max_length=25)
-    email = models.EmailField()
+    email = models.EmailField(blank=True, null=True)
     event_type = models.CharField(max_length=100)
     from_date = models.DateField(null=True, blank=True)
     to_date = models.DateField(null=True, blank=True)
@@ -20,17 +24,26 @@ class Booking(models.Model):
     message = models.TextField(blank=True, null=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
-    # price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    # paid = models.BooleanField(default=False)
     start_time = models.TimeField(null=True, blank=True)
     end_time = models.TimeField(null=True, blank=True)
-    # total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    # advance_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    # paid_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    # balance = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     estimated_guests = models.IntegerField(null=True, blank=True, default=0)
     food_preference = models.CharField(max_length=50, blank=True, null=True)
     alternate_phone = models.CharField(max_length=25, blank=True, null=True)
+
+    # ✅ CHANGE 2: Find the lowest available ID (fills gaps left by deleted bookings)
+    @classmethod
+    def _get_next_available_id(cls):
+        existing_ids = set(cls.objects.values_list('id', flat=True))
+        next_id = 1
+        while next_id in existing_ids:
+            next_id += 1
+        return next_id
+
+    # ✅ CHANGE 3: Override save() to assign the gap-filling ID on creation only
+    def save(self, *args, **kwargs):
+        if not self.pk:  # Only assign a new ID when creating (not editing)
+            self.pk = self._get_next_available_id()
+        super().save(*args, **kwargs)
 
     @property
     def payment_status(self):
@@ -105,6 +118,7 @@ class Booking(models.Model):
             })
         
         print("✅ Model clean() passed")
+
 
 class Expense(models.Model):
     function_date = models.DateField()
