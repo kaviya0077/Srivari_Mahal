@@ -613,7 +613,6 @@ def booking_receipt(request, pk):
         story.append(Spacer(1, 10))
         story.append(Paragraph("ADDITIONAL INQUERIES", section_style))
         story.append(Spacer(1, 2))
-
         message_data = [[Paragraph(booking.message, value_style)]]
         message_table = Table(message_data, colWidths=[540])
         message_table.setStyle(TableStyle([
@@ -704,15 +703,15 @@ def booking_receipt(request, pk):
     ))
 
     story.append(Paragraph(
-        "We look forward to making your celebration truly memorable.",
+        "<b>We look forward to making your celebration truly memorable.</b>",
         footer_style
     ))
     story.append(Spacer(1, 5))
 
     contact_data = [
-        [Paragraph("Phone: +91 98431 86231 | +91 88702 01981", footer_style)],
-        [Paragraph("Email: srivarimahal2025kpm@gmail.com", footer_style)],
-        [Paragraph("Sri Vari Thirumana Mandapam A/C - Grand Marriage & Party Hall, Kannadasan Street, Abirami Nagar, Baluchetty Chatram, Sirunaiperugal, Kanchipuram - 631551", footer_style)]
+        [Paragraph("<b>Phone: +91 98431 86231 | +91 88702 01981</b>", footer_style)],
+        [Paragraph("<b>Email: srivarimahal2025kpm@gmail.com</b>", footer_style)],
+        [Paragraph("<b>Sri Vari Thirumana Mandapam A/C - Grand Marriage & Party Hall, Kannadasan Street, Abirami Nagar, Baluchetty Chatram, Sirunaiperugal, Kanchipuram - 631551</b>", footer_style)]
     ]
 
     contact_table = Table(contact_data, colWidths=[540])
