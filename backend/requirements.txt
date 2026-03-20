@@ -7,3 +7,4 @@ gunicorn
 djangorestframework-simplejwt
 stripe
 whitenoise
+openpyxl
