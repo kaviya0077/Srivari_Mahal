@@ -8,3 +8,5 @@ djangorestframework-simplejwt
 stripe
 whitenoise
 openpyxl
+dj-database-url
+psycopg2-binary
